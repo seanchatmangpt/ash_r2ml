@@ -181,20 +181,20 @@ defmodule AshR2RML.KnowledgeHook.Spec do
     end
   end
 
-  @doc "Stable serializable projection used by generators, receipts, and replay."
+  @doc "Stable map-shaped projection used by generators, receipts, and replay."
   @spec projection(t()) :: map()
   def projection(%__MODULE__{} = spec) do
     %{
       version: 1,
       id: spec.id,
       name: spec.name,
-      trigger: canonical(spec.trigger),
-      observation: canonical(spec.observation),
+      trigger: projection_value(spec.trigger),
+      observation: projection_value(spec.observation),
       predicate: canonical_predicate(spec.predicate),
-      construct: canonical(spec.construct),
+      construct: projection_value(spec.construct),
       dependencies: spec.dependencies,
-      provenance: canonical(spec.provenance),
-      receipt_policy: canonical(spec.receipt_policy),
+      provenance: projection_value(spec.provenance),
+      receipt_policy: projection_value(spec.receipt_policy),
       authority_ceiling: :CONSTRUCT,
       authority: :UNAUTHORIZED,
       standing: spec.standing,
@@ -257,6 +257,16 @@ defmodule AshR2RML.KnowledgeHook.Spec do
   defp canonical(list) when is_list(list), do: Enum.map(list, &canonical/1)
   defp canonical(tuple) when is_tuple(tuple), do: tuple |> Tuple.to_list() |> Enum.map(&canonical/1)
   defp canonical(value), do: value
+
+  defp projection_value(%_{} = struct), do: struct |> Map.from_struct() |> projection_value()
+
+  defp projection_value(map) when is_map(map) do
+    Map.new(map, fn {key, value} -> {key, projection_value(value)} end)
+  end
+
+  defp projection_value(list) when is_list(list), do: Enum.map(list, &projection_value/1)
+  defp projection_value(tuple) when is_tuple(tuple), do: tuple |> Tuple.to_list() |> Enum.map(&projection_value/1)
+  defp projection_value(value), do: value
 end
 
 defmodule AshR2RML.KnowledgeHook.Scheduler do
