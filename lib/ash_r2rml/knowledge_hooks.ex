@@ -155,7 +155,9 @@ defmodule AshR2RML.KnowledgeHooks do
 
   @doc "Admit normalized hook definitions into a deterministic construct-only plan."
   @spec admit([map()], keyword()) :: {:ok, Plan.t()} | {:error, [Refusal.t()]}
-  def admit(definitions, opts \\ []) when is_list(definitions) and is_list(opts) do
+  def admit(definitions, opts \\ [])
+
+  def admit(definitions, opts) when is_list(definitions) and is_list(opts) do
     with {:ok, hooks} <- normalize_definitions(definitions),
          :ok <- unique_ids(hooks) do
       hooks = Enum.sort_by(hooks, & &1.id)
