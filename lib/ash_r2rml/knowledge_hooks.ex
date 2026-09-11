@@ -113,6 +113,14 @@ defmodule AshR2RML.KnowledgeHook.Evaluation do
 
   @enforce_keys [:hook_id, :matched?, :receipt]
   defstruct [:hook_id, :matched?, :intent, :receipt, observations: []]
+
+  @type t :: %__MODULE__{
+          hook_id: String.t(),
+          matched?: boolean(),
+          intent: map() | nil,
+          receipt: map(),
+          observations: [AshR2RML.SPARQL.Observation.t()]
+        }
 end
 
 defmodule AshR2RML.KnowledgeHooks do
