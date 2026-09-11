@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: 2026 ash_r2rml contributors <https://github.com/seanchatmangpt/ash_r2rml/graphs/contributors>
+# SPDX-License-Identifier: MIT
+
+@prefix kh: <https://seanchatmangpt.github.io/ash-r2rml/knowledge-hook#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+kh:HookShape a sh:NodeShape ;
+  sh:targetClass kh:Hook ;
+  sh:closed true ;
+  sh:ignoredProperties ( rdf:type ) ;
+  sh:property [
+    sh:path kh:trigger ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class kh:Trigger
+  ] ;
+  sh:property [
+    sh:path kh:observation ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class kh:Observation
+  ] ;
+  sh:property [
+    sh:path kh:predicate ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class kh:Predicate
+  ] ;
+  sh:property [
+    sh:path kh:construct ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class kh:Construct
+  ] ;
+  sh:property [
+    sh:path kh:receiptPolicy ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class kh:ReceiptPolicy
+  ] ;
+  sh:property [
+    sh:path kh:after ;
+    sh:class kh:Hook
+  ] ;
+  sh:property [
+    sh:path kh:authorityCeiling ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:hasValue "CONSTRUCT"
+  ] ;
+  sh:property [
+    sh:path kh:specSha256 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string ;
+    sh:pattern "^[0-9a-f]{64}$"
+  ] .
+
+kh:TriggerShape a sh:NodeShape ;
+  sh:targetClass kh:Trigger ;
+  sh:closed true ;
+  sh:ignoredProperties ( rdf:type ) ;
+  sh:property [
+    sh:path kh:triggerType ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:in ( "rdf_change" "sparql_result" "interval" "event" )
+  ] ;
+  sh:property [
+    sh:path kh:triggerPattern ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string
+  ] .
+
+kh:PredicateShape a sh:NodeShape ;
+  sh:targetClass kh:Predicate ;
+  sh:closed true ;
+  sh:ignoredProperties ( rdf:type ) ;
+  sh:property [
+    sh:path kh:predicateType ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:in ( "ask" "result_delta" "external_trigger" )
+  ] ;
+  sh:property [ sh:path kh:queryText ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+  sh:property [ sh:path kh:querySha256 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:pattern "^[0-9a-f]{64}$" ] .
+
+kh:ConstructShape a sh:NodeShape ;
+  sh:targetClass kh:Construct ;
+  sh:closed true ;
+  sh:ignoredProperties ( rdf:type ) ;
+  sh:property [
+    sh:path kh:constructKind ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:in ( "reactor" "ash_action" "state_transition" "oban" "workflow" "pipeline" "opaque_target" )
+  ] ;
+  sh:property [
+    sh:path kh:target ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string
+  ] .
+
+kh:ReceiptPolicyShape a sh:NodeShape ;
+  sh:targetClass kh:ReceiptPolicy ;
+  sh:closed true ;
+  sh:ignoredProperties ( rdf:type ) ;
+  sh:property [
+    sh:path kh:requiresEvaluationReceipt ;
+    sh:minCount 1 ; sh:maxCount 1 ; sh:hasValue true
+  ] ;
+  sh:property [
+    sh:path kh:requiresActuationReceipt ;
+    sh:minCount 1 ; sh:maxCount 1 ; sh:hasValue true
+  ] ;
+  sh:property [
+    sh:path kh:requiresConsequenceReceipt ;
+    sh:minCount 1 ; sh:maxCount 1 ; sh:hasValue true
+  ] .

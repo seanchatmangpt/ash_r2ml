@@ -1,0 +1,108 @@
+# SPDX-FileCopyrightText: 2026 ash_r2rml contributors <https://github.com/seanchatmangpt/ash_r2rml/graphs/contributors>
+# SPDX-License-Identifier: MIT
+
+@prefix kh: <https://seanchatmangpt.github.io/ash-r2rml/knowledge-hook#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+
+kh: a owl:Ontology ;
+  dct:title "AshR2RML Knowledge Hook Ontology" ;
+  rdfs:comment "Canonical semantic vocabulary for construct-only Knowledge Hooks. The vocabulary describes observations and inert constructions; it grants no DO authority." .
+
+kh:Hook a owl:Class ;
+  rdfs:label "Knowledge Hook" ;
+  rdfs:comment "A bounded semantic observation law that may manufacture a construct-only consequence." .
+
+kh:Trigger a owl:Class ; rdfs:label "Trigger" .
+kh:Observation a owl:Class ; rdfs:label "Observation Projection" .
+kh:Predicate a owl:Class ; rdfs:label "Predicate" .
+kh:Construct a owl:Class ; rdfs:label "Construct" .
+kh:ReceiptPolicy a owl:Class ; rdfs:label "Receipt Policy" .
+kh:PromotionCandidate a owl:Class ; rdfs:label "Promotion Candidate" .
+
+kh:trigger a owl:ObjectProperty ;
+  rdfs:domain kh:Hook ;
+  rdfs:range kh:Trigger .
+
+kh:observation a owl:ObjectProperty ;
+  rdfs:domain kh:Hook ;
+  rdfs:range kh:Observation .
+
+kh:predicate a owl:ObjectProperty ;
+  rdfs:domain kh:Hook ;
+  rdfs:range kh:Predicate .
+
+kh:construct a owl:ObjectProperty ;
+  rdfs:domain kh:Hook ;
+  rdfs:range kh:Construct .
+
+kh:receiptPolicy a owl:ObjectProperty ;
+  rdfs:domain kh:Hook ;
+  rdfs:range kh:ReceiptPolicy .
+
+kh:after a owl:ObjectProperty ;
+  rdfs:domain kh:Hook ;
+  rdfs:range kh:Hook ;
+  rdfs:comment "Evaluation dependency only; never an actuation edge." .
+
+kh:triggerType a owl:DatatypeProperty ;
+  rdfs:domain kh:Trigger ;
+  rdfs:range xsd:string .
+
+kh:triggerPattern a owl:DatatypeProperty ;
+  rdfs:domain kh:Trigger ;
+  rdfs:range xsd:string .
+
+kh:predicateType a owl:DatatypeProperty ;
+  rdfs:domain kh:Predicate ;
+  rdfs:range xsd:string .
+
+kh:queryText a owl:DatatypeProperty ;
+  rdfs:domain kh:Predicate ;
+  rdfs:range xsd:string .
+
+kh:querySha256 a owl:DatatypeProperty ;
+  rdfs:range xsd:string .
+
+kh:constructKind a owl:DatatypeProperty ;
+  rdfs:domain kh:Construct ;
+  rdfs:range xsd:string .
+
+kh:target a owl:DatatypeProperty ;
+  rdfs:domain kh:Construct ;
+  rdfs:range xsd:string ;
+  rdfs:comment "Opaque target identity. Presence does not authorize invocation." .
+
+kh:authorityCeiling a owl:DatatypeProperty ;
+  rdfs:domain kh:Hook ;
+  rdfs:range xsd:string ;
+  rdfs:comment "Canonical Knowledge Hooks use the literal CONSTRUCT." .
+
+kh:requiresEvaluationReceipt a owl:DatatypeProperty ;
+  rdfs:domain kh:ReceiptPolicy ;
+  rdfs:range xsd:boolean .
+
+kh:requiresActuationReceipt a owl:DatatypeProperty ;
+  rdfs:domain kh:ReceiptPolicy ;
+  rdfs:range xsd:boolean .
+
+kh:requiresConsequenceReceipt a owl:DatatypeProperty ;
+  rdfs:domain kh:ReceiptPolicy ;
+  rdfs:range xsd:boolean .
+
+kh:specSha256 a owl:DatatypeProperty ;
+  rdfs:domain kh:Hook ;
+  rdfs:range xsd:string .
+
+kh:promotionReceiptSha256 a owl:DatatypeProperty ;
+  rdfs:domain kh:PromotionCandidate ;
+  rdfs:range xsd:string .
+
+kh:observedReceiptSha256 a owl:DatatypeProperty ;
+  rdfs:range xsd:string .
+
+kh:standing a owl:DatatypeProperty ;
+  rdfs:range xsd:string .
