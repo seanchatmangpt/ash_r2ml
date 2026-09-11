@@ -78,6 +78,26 @@ defmodule AshR2RML do
   @doc "Execute an explicitly selected or uniquely forced SPARQL execution plan."
   defdelegate execute_sparql(plan), to: AshR2RML.SPARQL, as: :execute
 
+  @doc "Admit normalized knowledge-hook definitions into a construct-only plan."
+  def admit_knowledge_hooks(definitions, opts \\ []),
+    do: AshR2RML.KnowledgeHooks.admit(definitions, opts)
+
+  @doc "Parse GitVan/KNHK knowledge-hook Turtle into a construct-only plan."
+  def ingest_knowledge_hooks_turtle(turtle, opts \\ []),
+    do: AshR2RML.KnowledgeHooks.from_turtle(turtle, opts)
+
+  @doc "Evaluate admitted knowledge hooks and construct unauthorized intents for matches."
+  def evaluate_knowledge_hooks(plan, opts \\ []),
+    do: AshR2RML.KnowledgeHooks.evaluate(plan, opts)
+
+  @doc "Manufacture a deterministic ggen path/content bundle for admitted knowledge hooks."
+  def compile_knowledge_hooks_bundle(plan_or_definitions, opts \\ []),
+    do: AshR2RML.Ggen.KnowledgeHooks.compile(plan_or_definitions, opts)
+
+  @doc "Parse knowledge-hook Turtle and manufacture its deterministic ggen path/content bundle."
+  def compile_knowledge_hooks_turtle_bundle(turtle, opts \\ []),
+    do: AshR2RML.Ggen.KnowledgeHooks.compile_turtle(turtle, opts)
+
   @doc "Render standards-oriented R2RML Turtle from a bundle or Ash resource set."
   defdelegate render(resources_or_bundle), to: AshR2RML.R2RML
 
