@@ -40,7 +40,9 @@ defmodule AshR2RML.SPARQL.Query do
     end
   end
 
-  @spec admit(String.t() | Elixir.SPARQL.Query.t()) :: {:ok, t()} | {:error, Refusal.t()}
+  @spec admit(t() | String.t() | Elixir.SPARQL.Query.t()) :: {:ok, t()} | {:error, Refusal.t()}
+  def admit(%__MODULE__{} = admitted), do: {:ok, admitted}
+
   def admit(%Elixir.SPARQL.Query{query_string: source} = parsed) when is_binary(source) do
     {:ok,
      %__MODULE__{
