@@ -11,16 +11,28 @@ on:
     paths:
       - "lib/ash_r2rml.ex"
       - "lib/ash_r2rml/knowledge_hooks.ex"
+      - "lib/ash_r2rml/knowledge_hook/**"
       - "lib/ash_r2rml/ggen/knowledge_hooks.ex"
+      - "priv/ontology/knowledge-hooks.ttl"
+      - "priv/shapes/knowledge-hooks.shacl.ttl"
       - "test/knowledge_hooks_test.exs"
+      - "test/knowledge_hook_spec_test.exs"
+      - "test/knowledge_hook_promotion_test.exs"
+      - "test/knowledge_hook_vocabulary_test.exs"
       - "test/adversarial/knowledge_hooks_authority_test.exs"
       - ".github/workflows/knowledge-hooks-unit.yml"
   pull_request:
     paths:
       - "lib/ash_r2rml.ex"
       - "lib/ash_r2rml/knowledge_hooks.ex"
+      - "lib/ash_r2rml/knowledge_hook/**"
       - "lib/ash_r2rml/ggen/knowledge_hooks.ex"
+      - "priv/ontology/knowledge-hooks.ttl"
+      - "priv/shapes/knowledge-hooks.shacl.ttl"
       - "test/knowledge_hooks_test.exs"
+      - "test/knowledge_hook_spec_test.exs"
+      - "test/knowledge_hook_promotion_test.exs"
+      - "test/knowledge_hook_vocabulary_test.exs"
       - "test/adversarial/knowledge_hooks_authority_test.exs"
       - ".github/workflows/knowledge-hooks-unit.yml"
 
@@ -55,4 +67,7 @@ jobs:
         run: >-
           mix test
           test/knowledge_hooks_test.exs
+          test/knowledge_hook_spec_test.exs
+          test/knowledge_hook_promotion_test.exs
+          test/knowledge_hook_vocabulary_test.exs
           test/adversarial/knowledge_hooks_authority_test.exs
