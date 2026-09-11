@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2026 ash_r2rml contributors <https://github.com/seanchatmangpt/ash_r2rml/graphs/contributors>
+# SPDX-License-Identifier: MIT
+
+name: Knowledge Hooks Unit
+
+on:
+  push:
+    branches:
+      - main
+      - feat/knowledge-hooks
+    paths:
+      - "lib/ash_r2rml/knowledge_hooks.ex"
+      - "lib/ash_r2rml/ggen/knowledge_hooks.ex"
+      - "test/knowledge_hooks_test.exs"
+      - "test/adversarial/knowledge_hooks_authority_test.exs"
+      - ".github/workflows/knowledge-hooks-unit.yml"
+  pull_request:
+    paths:
+      - "lib/ash_r2rml/knowledge_hooks.ex"
+      - "lib/ash_r2rml/ggen/knowledge_hooks.ex"
+      - "test/knowledge_hooks_test.exs"
+      - "test/adversarial/knowledge_hooks_authority_test.exs"
+      - ".github/workflows/knowledge-hooks-unit.yml"
+
+concurrency:
+  group: knowledge-hooks-unit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  knowledge-hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir / Erlang (from .tool-versions)
+        uses: jdx/mise-action@v2
+
+      - name: Cache exact-toolchain deps and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-knowledge-hooks-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Compile with warnings as errors
+        run: mix compile --force --warnings-as-errors
+
+      - name: Execute knowledge-hook contract and authority falsifiers
+        run: >-
+          mix test
+          test/knowledge_hooks_test.exs
+          test/adversarial/knowledge_hooks_authority_test.exs
