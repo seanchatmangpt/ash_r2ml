@@ -4,13 +4,15 @@
 
 defmodule AshR2RML.Ggen.KnowledgeHooks do
   @moduledoc """
-  Deterministic ggen path/content projection for admitted knowledge-hook plans.
+  Deterministic ggen path/content projection for admitted Knowledge Hook plans.
 
-  This module manufactures files only. It does not register hooks, schedule
-  timers, execute pipelines, invoke actions, or grant downstream DO authority.
+  This module manufactures path/content values only. It does not register
+  hooks, schedule timers, execute pipelines, invoke Ash/Reactor targets, write
+  files, or grant downstream DO authority.
   """
 
-  alias AshR2RML.KnowledgeHook.Plan
+  alias AshR2RML.KnowledgeHook.{Plan, Scheduler, Spec}
+  alias AshR2RML.Compiler
 
   @doc "Compile normalized hook definitions or an existing plan into a ggen bundle."
   @spec compile(Plan.t() | [map()], keyword()) :: {:ok, map()} | {:error, term()}
@@ -33,32 +35,58 @@ defmodule AshR2RML.Ggen.KnowledgeHooks do
   end
 
   defp bundle(plan) do
-    projection = AshR2RML.KnowledgeHooks.projection(plan)
+    plan_projection = AshR2RML.KnowledgeHooks.projection(plan)
 
-    receipt = %{
-      status: :PARTIAL_ALIVE,
-      standing: :construct_only,
-      authority: :UNAUTHORIZED,
-      plan_sha256: plan.plan_sha256,
-      hook_count: length(plan.hooks),
-      generated: ["generated/knowledge-hooks/plan.json"],
-      blocked: [:hook_actuation_authority]
-    }
+    with {:ok, specs} <- Spec.from_plan(plan),
+         {:ok, scheduled_specs} <- Scheduler.schedule(specs) do
+      spec_projection = %{
+        version: 1,
+        authority: :UNAUTHORIZED,
+        authority_ceiling: :CONSTRUCT,
+        standing: :construct_only,
+        plan_sha256: plan.plan_sha256,
+        schedule: Enum.map(scheduled_specs, & &1.id),
+        specs: Enum.map(scheduled_specs, &Spec.projection/1)
+      }
 
-    with {:ok, plan_json} <- encode_json(projection),
-         {:ok, receipt_json} <- encode_json(receipt) do
-      {:ok,
-       %{
-         status: :PARTIAL_ALIVE,
-         standing: :construct_only,
-         authority: :UNAUTHORIZED,
-         knowledge_hook_plan_sha256: plan.plan_sha256,
-         plan: plan,
-         files: %{
-           "generated/knowledge-hooks/plan.json" => plan_json <> "\n",
-           "receipts/knowledge-hooks-compilation.json" => receipt_json <> "\n"
-         }
-       }}
+      spec_bundle_sha256 = Compiler.sha256(spec_projection)
+
+      receipt = %{
+        status: :PARTIAL_ALIVE,
+        standing: :construct_only,
+        authority: :UNAUTHORIZED,
+        authority_ceiling: :CONSTRUCT,
+        plan_sha256: plan.plan_sha256,
+        spec_bundle_sha256: spec_bundle_sha256,
+        hook_count: length(plan.hooks),
+        schedule: spec_projection.schedule,
+        generated: [
+          "generated/knowledge-hooks/plan.json",
+          "generated/knowledge-hooks/specs.json"
+        ],
+        blocked: [:hook_actuation_authority]
+      }
+
+      with {:ok, plan_json} <- encode_json(plan_projection),
+           {:ok, specs_json} <- encode_json(spec_projection),
+           {:ok, receipt_json} <- encode_json(receipt) do
+        {:ok,
+         %{
+           status: :PARTIAL_ALIVE,
+           standing: :construct_only,
+           authority: :UNAUTHORIZED,
+           authority_ceiling: :CONSTRUCT,
+           knowledge_hook_plan_sha256: plan.plan_sha256,
+           knowledge_hook_spec_bundle_sha256: spec_bundle_sha256,
+           plan: plan,
+           specs: scheduled_specs,
+           files: %{
+             "generated/knowledge-hooks/plan.json" => plan_json <> "\n",
+             "generated/knowledge-hooks/specs.json" => specs_json <> "\n",
+             "receipts/knowledge-hooks-compilation.json" => receipt_json <> "\n"
+           }
+         }}
+      end
     end
   end
 
