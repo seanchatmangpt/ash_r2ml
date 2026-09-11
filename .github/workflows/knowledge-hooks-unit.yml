@@ -9,6 +9,7 @@ on:
       - main
       - feat/knowledge-hooks
     paths:
+      - "lib/ash_r2rml.ex"
       - "lib/ash_r2rml/knowledge_hooks.ex"
       - "lib/ash_r2rml/ggen/knowledge_hooks.ex"
       - "test/knowledge_hooks_test.exs"
@@ -16,6 +17,7 @@ on:
       - ".github/workflows/knowledge-hooks-unit.yml"
   pull_request:
     paths:
+      - "lib/ash_r2rml.ex"
       - "lib/ash_r2rml/knowledge_hooks.ex"
       - "lib/ash_r2rml/ggen/knowledge_hooks.ex"
       - "test/knowledge_hooks_test.exs"
