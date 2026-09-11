@@ -82,9 +82,9 @@ defmodule AshR2RML do
   def admit_knowledge_hooks(definitions, opts \\ []),
     do: AshR2RML.KnowledgeHooks.admit(definitions, opts)
 
-  @doc "Parse GitVan/KNHK Knowledge Hook Turtle into a construct-only plan."
+  @doc "Parse canonical AshR2RML, GitVan, or KNHK Knowledge Hook Turtle into a construct-only plan."
   def ingest_knowledge_hooks_turtle(turtle, opts \\ []),
-    do: AshR2RML.KnowledgeHooks.from_turtle(turtle, opts)
+    do: AshR2RML.KnowledgeHook.Ingestion.from_turtle(turtle, opts)
 
   @doc "Evaluate admitted Knowledge Hooks and construct unauthorized intents for matches."
   def evaluate_knowledge_hooks(plan, opts \\ []),
@@ -107,7 +107,7 @@ defmodule AshR2RML do
   def compile_knowledge_hooks_bundle(plan_or_definitions, opts \\ []),
     do: AshR2RML.Ggen.KnowledgeHooks.compile(plan_or_definitions, opts)
 
-  @doc "Parse Knowledge Hook Turtle and manufacture its deterministic ggen path/content bundle."
+  @doc "Parse canonical/legacy Knowledge Hook Turtle and manufacture its deterministic ggen path/content bundle."
   def compile_knowledge_hooks_turtle_bundle(turtle, opts \\ []),
     do: AshR2RML.Ggen.KnowledgeHooks.compile_turtle(turtle, opts)
 
