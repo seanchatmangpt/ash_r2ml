@@ -70,7 +70,9 @@ defmodule AshR2RML.KnowledgeHook.Promotion do
   alias AshR2RML.{Compiler, Refusal}
 
   @doc "Evaluate a candidate against observed positive and falsifier evidence."
-  def evaluate(%Candidate{} = candidate, evidence, opts \\ []) when is_list(evidence) and is_list(opts) do
+  def evaluate(candidate, evidence, opts \\ [])
+
+  def evaluate(%Candidate{} = candidate, evidence, opts) when is_list(evidence) and is_list(opts) do
     minimum_positive = Keyword.get(opts, :minimum_positive, 2)
     minimum_falsifiers = Keyword.get(opts, :minimum_falsifiers, 1)
 
