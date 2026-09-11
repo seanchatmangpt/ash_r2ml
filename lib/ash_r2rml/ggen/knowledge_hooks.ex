@@ -26,10 +26,10 @@ defmodule AshR2RML.Ggen.KnowledgeHooks do
     end
   end
 
-  @doc "Parse GitVan/KNHK Turtle, admit the hooks, and manufacture a ggen bundle."
+  @doc "Parse canonical AshR2RML, GitVan, or KNHK Turtle and manufacture a ggen bundle."
   @spec compile_turtle(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def compile_turtle(turtle, opts \\ []) do
-    with {:ok, plan} <- AshR2RML.KnowledgeHooks.from_turtle(turtle, opts) do
+    with {:ok, plan} <- AshR2RML.KnowledgeHook.Ingestion.from_turtle(turtle, opts) do
       bundle(plan)
     end
   end
