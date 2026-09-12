@@ -1,8 +1,5 @@
 # Forbidden graph-database residue audit
 
-content_matches=1
-filename_matches=2
+content_matches=0
+filename_matches=0
 
-lib/ash_r2rml.ex
-documentation/topics/migration_from_ash_neo4j.md
-usage-rules/cypher-fragments.md

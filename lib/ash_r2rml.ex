@@ -144,7 +144,7 @@ defmodule AshR2RML do
           classes_admitted: length(bundle.resources),
           executed: [:canonical_mapping_ir, :r2rml_render, :shacl_render],
           verified: [:canonical_mapping_ir_projection],
-          blocked: [:sparql_sql_behavioral_parity, :neo4j_postgres_semantic_parity, :cutover_authority],
+          blocked: [:sparql_sql_behavioral_parity, :cutover_authority],
           refusals: []
         }
 
