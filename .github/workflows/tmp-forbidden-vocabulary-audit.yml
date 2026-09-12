@@ -1,0 +1,24 @@
+name: Temporary forbidden vocabulary audit
+
+on:
+  push:
+    branches:
+      - feat/knowledge-hooks
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Enumerate forbidden graph-database vocabulary
+        shell: bash
+        run: |
+          set +e
+          git grep -nIi -E 'neo4j|ash[_-]?neo4j|AshNeo4j|bolt://|neo4j://|cypher' -- .
+          status=$?
+          echo "grep_status=$status"
+          find . -path ./.git -prune -o -type f -print | grep -iE 'neo4j|cypher' || true
+          exit 0
