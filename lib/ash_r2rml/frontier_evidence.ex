@@ -99,7 +99,9 @@ defmodule AshR2RML.FrontierEvidence do
         refusal(:frontier_evidence, "unsupported FrontierEvidence schema", %{schema: Map.get(fragment, :schema)})
 
       Map.get(fragment, :producer) != @producer ->
-        refusal(:frontier_evidence, "FrontierEvidence producer identity changed", %{producer: Map.get(fragment, :producer)})
+        refusal(:frontier_evidence, "FrontierEvidence producer identity changed", %{
+          producer: Map.get(fragment, :producer)
+        })
 
       Map.get(fragment, :authority_ceiling) != @authority_ceiling ->
         refusal(:frontier_evidence, "FrontierEvidence authority ceiling widened", %{
@@ -201,7 +203,12 @@ defmodule AshR2RML.FrontierEvidence do
         evidence_refusal(:observation, index, "observation subject/replay identity is incomplete", receipt)
 
       receipt.version != 1 or receipt.observed? != true or receipt.status != :PARTIAL_ALIVE ->
-        evidence_refusal(:observation, index, "observation receipt status is outside the admitted native contract", receipt)
+        evidence_refusal(
+          :observation,
+          index,
+          "observation receipt status is outside the admitted native contract",
+          receipt
+        )
 
       receipt.standing != :observed_ash_primitive ->
         evidence_refusal(:observation, index, "observation standing is not observed_ash_primitive", receipt)
@@ -342,13 +349,28 @@ defmodule AshR2RML.FrontierEvidence do
         evidence_refusal(:evaluation, index, "evaluation match state does not match its receipt", receipt)
 
       receipt.status != :PARTIAL_ALIVE or receipt.standing != expected_standing ->
-        evidence_refusal(:evaluation, index, "evaluation standing is outside the admitted SELECT/CONSTRUCT contract", receipt)
+        evidence_refusal(
+          :evaluation,
+          index,
+          "evaluation standing is outside the admitted SELECT/CONSTRUCT contract",
+          receipt
+        )
 
       receipt.authority != :UNAUTHORIZED or receipt.consequence != expected_consequence ->
-        evidence_refusal(:evaluation, index, "evaluation authority/consequence is outside the admitted SELECT/CONSTRUCT contract", receipt)
+        evidence_refusal(
+          :evaluation,
+          index,
+          "evaluation authority/consequence is outside the admitted SELECT/CONSTRUCT contract",
+          receipt
+        )
 
       is_nil(expected_execution) or receipt.executed != expected_execution ->
-        evidence_refusal(:evaluation, index, "evaluation execution trace is outside admitted predicate evaluation/intent selection", receipt)
+        evidence_refusal(
+          :evaluation,
+          index,
+          "evaluation execution trace is outside admitted predicate evaluation/intent selection",
+          receipt
+        )
 
       :evaluation_receipt_identity not in receipt.verified or :predicate_identity not in receipt.verified ->
         evidence_refusal(:evaluation, index, "evaluation identity was not verified by the native evaluator", receipt)
@@ -378,10 +400,20 @@ defmodule AshR2RML.FrontierEvidence do
       {:ok, trigger} ->
         cond do
           receipt.external_trigger_receipt_sha256 != Map.get(trigger, :receipt_sha256) ->
-            evidence_refusal(:evaluation, index, "external-trigger evaluation is detached from its trigger receipt", receipt)
+            evidence_refusal(
+              :evaluation,
+              index,
+              "external-trigger evaluation is detached from its trigger receipt",
+              receipt
+            )
 
           evaluation.matched? != Map.get(trigger, :matched?) ->
-            evidence_refusal(:evaluation, index, "external-trigger evaluation match state differs from its trigger receipt", receipt)
+            evidence_refusal(
+              :evaluation,
+              index,
+              "external-trigger evaluation match state differs from its trigger receipt",
+              receipt
+            )
 
           true ->
             :ok
