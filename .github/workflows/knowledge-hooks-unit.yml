@@ -8,7 +8,6 @@ on:
     branches:
       - main
       - feat/knowledge-hooks
-      - feat/frontier-evidence-v1
     paths:
       - "lib/ash_r2rml.ex"
       - "lib/ash_r2rml/semantic_web.ex"
@@ -25,6 +24,7 @@ on:
       - "test/knowledge_hook_vocabulary_test.exs"
       - "test/knowledge_hook_rdf_test.exs"
       - "test/frontier_evidence_test.exs"
+      - "test/frontier_evidence_identity_test.exs"
       - "test/adversarial/knowledge_hooks_authority_test.exs"
       - ".github/workflows/knowledge-hooks-unit.yml"
   pull_request:
@@ -44,6 +44,7 @@ on:
       - "test/knowledge_hook_vocabulary_test.exs"
       - "test/knowledge_hook_rdf_test.exs"
       - "test/frontier_evidence_test.exs"
+      - "test/frontier_evidence_identity_test.exs"
       - "test/adversarial/knowledge_hooks_authority_test.exs"
       - ".github/workflows/knowledge-hooks-unit.yml"
 
@@ -76,6 +77,7 @@ jobs:
           mix format --check-formatted
           lib/ash_r2rml/frontier_evidence.ex
           test/frontier_evidence_test.exs
+          test/frontier_evidence_identity_test.exs
 
       - name: Compile with warnings as errors
         run: mix compile --force --warnings-as-errors
@@ -90,4 +92,5 @@ jobs:
           test/knowledge_hook_vocabulary_test.exs
           test/knowledge_hook_rdf_test.exs
           test/frontier_evidence_test.exs
+          test/frontier_evidence_identity_test.exs
           test/adversarial/knowledge_hooks_authority_test.exs
