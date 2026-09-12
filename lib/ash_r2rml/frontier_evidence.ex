@@ -5,45 +5,330 @@ defmodule AshR2RML.FrontierEvidence do
   @moduledoc """
   Content-addressed FrontierEvidence v1 projection for observed knowledge-hook data.
 
-  Inputs must already be observation/evaluation receipts. This module performs no
-  notifier registration, hook registration, callback execution, scheduling, file
-  writes, or downstream actuation. It preserves ash_r2rml's OBSERVE/SELECT/CONSTRUCT
-  authority ceiling while making the evidence portable to a downstream admission
-  court such as XaaS.
+  Inputs must be native, already-produced Ash knowledge-hook observation/evaluation
+  receipts. This module performs no notifier registration, hook registration,
+  callback execution, scheduling, file writes, or downstream actuation. It admits
+  only evidence that preserves ash_r2rml's OBSERVE/SELECT/CONSTRUCT authority
+  ceiling, then manufactures a deterministic portable fragment for a downstream
+  admission court such as XaaS.
   """
+
+  alias AshR2RML.KnowledgeHook.{Evaluation, EvaluationReceipt, Intent}
+  alias AshR2RML.KnowledgeHook.Ash.ObservationReceipt
+  alias AshR2RML.Refusal
 
   @schema "frontier-evidence/v1"
   @producer "ash_r2rml"
   @authority_ceiling "CONSTRUCT"
+  @allowed_options [:producer_head, :standing]
+  @allowed_standings ~w(UNKNOWN PARTIAL_ALIVE BLOCKED BUILD_BROKEN UNSUPPORTED)
+  @required_refusals [
+    "callbacks",
+    "timers",
+    "hook_registration",
+    "unobserved_external_triggers",
+    "actuation_authority"
+  ]
 
-  @spec from_knowledge_hooks(list(), list(), keyword()) :: map()
+  @spec from_knowledge_hooks([ObservationReceipt.t()], [Evaluation.t()], keyword()) ::
+          {:ok, map()} | {:error, Refusal.t()}
   def from_knowledge_hooks(observations, evaluations, opts \\ [])
-      when is_list(observations) and is_list(evaluations) do
-    producer_head = Keyword.fetch!(opts, :producer_head)
-    standing = Keyword.get(opts, :standing, "PARTIAL_ALIVE")
 
-    evidence = %{
-      observations: Enum.map(observations, &canonical_term/1),
-      evaluations: Enum.map(evaluations, &canonical_term/1)
-    }
+  def from_knowledge_hooks(observations, evaluations, opts)
+      when is_list(observations) and is_list(evaluations) and is_list(opts) do
+    with :ok <- validate_options(opts),
+         {:ok, producer_head} <- producer_head(opts),
+         {:ok, standing} <- standing(opts),
+         {:ok, observation_receipts} <- validate_observations(observations),
+         :ok <- validate_evaluations(evaluations, observation_receipts) do
+      evidence = %{
+        observations: Enum.map(observations, &canonical_term/1),
+        evaluations: Enum.map(evaluations, &canonical_term/1)
+      }
 
-    body = %{
-      schema: @schema,
-      producer: @producer,
-      producer_head: producer_head,
-      standing: standing,
-      authority_ceiling: @authority_ceiling,
-      evidence: evidence,
-      refused: [
-        "callbacks",
-        "timers",
-        "hook_registration",
-        "unobserved_external_triggers",
-        "actuation_authority"
-      ]
-    }
+      body = %{
+        schema: @schema,
+        producer: @producer,
+        producer_head: producer_head,
+        standing: standing,
+        authority_ceiling: @authority_ceiling,
+        evidence: evidence,
+        refused: @required_refusals
+      }
 
-    Map.put(body, :artifact_hash, fingerprint(body))
+      {:ok, Map.put(body, :artifact_hash, fingerprint(body))}
+    end
+  end
+
+  def from_knowledge_hooks(observations, evaluations, opts) do
+    refusal(
+      :frontier_evidence,
+      "FrontierEvidence requires observation and evaluation lists plus keyword options",
+      %{observations: inspect_type(observations), evaluations: inspect_type(evaluations), opts: inspect_type(opts)}
+    )
+  end
+
+  @doc "Recompute fragment identity and re-check the immutable authority envelope."
+  @spec verify(map()) :: :ok | {:error, Refusal.t()}
+  def verify(%{} = fragment) do
+    body = Map.delete(fragment, :artifact_hash)
+    expected_hash = Map.get(fragment, :artifact_hash)
+
+    cond do
+      Map.get(fragment, :schema) != @schema ->
+        refusal(:frontier_evidence, "unsupported FrontierEvidence schema", %{schema: Map.get(fragment, :schema)})
+
+      Map.get(fragment, :producer) != @producer ->
+        refusal(:frontier_evidence, "FrontierEvidence producer identity changed", %{producer: Map.get(fragment, :producer)})
+
+      Map.get(fragment, :authority_ceiling) != @authority_ceiling ->
+        refusal(:frontier_evidence, "FrontierEvidence authority ceiling widened", %{
+          authority_ceiling: Map.get(fragment, :authority_ceiling),
+          admitted: @authority_ceiling
+        })
+
+      Map.get(fragment, :refused) != @required_refusals ->
+        refusal(:frontier_evidence, "FrontierEvidence refusal envelope changed", %{
+          refused: Map.get(fragment, :refused),
+          admitted: @required_refusals
+        })
+
+      not sha256_prefixed?(expected_hash) ->
+        refusal(:frontier_evidence, "FrontierEvidence artifact identity is malformed", %{artifact_hash: expected_hash})
+
+      expected_hash != fingerprint(body) ->
+        refusal(:frontier_evidence, "FrontierEvidence artifact identity does not replay", %{
+          expected: expected_hash,
+          replayed: fingerprint(body)
+        })
+
+      true ->
+        :ok
+    end
+  end
+
+  def verify(other),
+    do: refusal(:frontier_evidence, "FrontierEvidence fragment must be a map", %{got: inspect_type(other)})
+
+  defp validate_options(opts) do
+    if Keyword.keyword?(opts) do
+      unknown = Keyword.keys(opts) -- @allowed_options
+
+      if unknown == [] do
+        :ok
+      else
+        refusal(:frontier_evidence, "FrontierEvidence received unsupported options", %{unsupported: unknown})
+      end
+    else
+      refusal(:frontier_evidence, "FrontierEvidence options must be a keyword list", %{got: inspect(opts)})
+    end
+  end
+
+  defp producer_head(opts) do
+    case Keyword.fetch(opts, :producer_head) do
+      {:ok, head} when is_binary(head) ->
+        if Regex.match?(~r/\A[0-9a-f]{40}\z/, head) do
+          {:ok, head}
+        else
+          refusal(:producer_head, "producer_head must be an exact 40-character lowercase Git SHA", %{got: head})
+        end
+
+      {:ok, other} ->
+        refusal(:producer_head, "producer_head must be an exact Git SHA", %{got: inspect(other)})
+
+      :error ->
+        refusal(:producer_head, "producer_head is required for FrontierEvidence identity")
+    end
+  end
+
+  defp standing(opts) do
+    value = Keyword.get(opts, :standing, "PARTIAL_ALIVE")
+    value = if is_atom(value), do: Atom.to_string(value), else: value
+
+    if value in @allowed_standings do
+      {:ok, value}
+    else
+      refusal(:standing, "FrontierEvidence cannot self-promote beyond bounded non-DO standing", %{
+        got: value,
+        admitted: @allowed_standings
+      })
+    end
+  end
+
+  defp validate_observations([]),
+    do: refusal(:observations, "FrontierEvidence requires at least one observed Ash primitive")
+
+  defp validate_observations(observations) do
+    observations
+    |> Enum.with_index()
+    |> Enum.reduce_while({:ok, MapSet.new()}, fn {observation, index}, {:ok, receipts} ->
+      case validate_observation(observation, index) do
+        :ok -> {:cont, {:ok, MapSet.put(receipts, observation.receipt_sha256)}}
+        {:error, %Refusal{} = refusal} -> {:halt, {:error, refusal}}
+      end
+    end)
+  end
+
+  defp validate_observation(%ObservationReceipt{} = receipt, index) do
+    cond do
+      not sha256?(receipt.receipt_sha256) ->
+        evidence_refusal(:observation, index, "observation receipt identity is malformed", receipt)
+
+      receipt.source not in [:ash_notification, :ash_action] ->
+        evidence_refusal(:observation, index, "observation source is not a native admitted Ash primitive", receipt)
+
+      not is_map(receipt.subject) or not is_map(receipt.replay) ->
+        evidence_refusal(:observation, index, "observation subject/replay identity is incomplete", receipt)
+
+      receipt.version != 1 or receipt.observed? != true or receipt.status != :PARTIAL_ALIVE ->
+        evidence_refusal(:observation, index, "observation receipt status is outside the admitted native contract", receipt)
+
+      receipt.standing != :observed_ash_primitive ->
+        evidence_refusal(:observation, index, "observation standing is not observed_ash_primitive", receipt)
+
+      receipt.authority != :UNAUTHORIZED or receipt.consequence != :none ->
+        evidence_refusal(:observation, index, "observation carries authority or consequence outside OBSERVE", receipt)
+
+      receipt.executed != [] ->
+        evidence_refusal(:observation, index, "observation claims executed consequence", receipt)
+
+      :observation_receipt_identity not in receipt.verified ->
+        evidence_refusal(:observation, index, "observation identity was not verified by the native adapter", receipt)
+
+      :actuation_authority not in receipt.blocked ->
+        evidence_refusal(:observation, index, "observation does not explicitly block actuation authority", receipt)
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_observation(other, index),
+    do:
+      refusal(:observations, "FrontierEvidence accepts native Ash observation receipts only", %{
+        index: index,
+        got: inspect_type(other)
+      })
+
+  defp validate_evaluations(evaluations, observation_receipts) do
+    evaluations
+    |> Enum.with_index()
+    |> Enum.reduce_while(:ok, fn {evaluation, index}, :ok ->
+      case validate_evaluation(evaluation, index, observation_receipts) do
+        :ok -> {:cont, :ok}
+        {:error, %Refusal{} = refusal} -> {:halt, {:error, refusal}}
+      end
+    end)
+  end
+
+  defp validate_evaluation(
+         %Evaluation{receipt: %EvaluationReceipt{} = receipt} = evaluation,
+         index,
+         observation_receipts
+       ) do
+    with :ok <- validate_evaluation_receipt(evaluation, receipt, index, observation_receipts),
+         :ok <- validate_intent(evaluation, receipt, index) do
+      :ok
+    end
+  end
+
+  defp validate_evaluation(other, index, _observation_receipts),
+    do:
+      refusal(:evaluations, "FrontierEvidence accepts native knowledge-hook evaluations only", %{
+        index: index,
+        got: inspect_type(other)
+      })
+
+  defp validate_evaluation_receipt(evaluation, receipt, index, observation_receipts) do
+    cond do
+      not sha256?(receipt.receipt_sha256) or not sha256?(receipt.plan_sha256) ->
+        evidence_refusal(:evaluation, index, "evaluation/plan receipt identity is malformed", receipt)
+
+      evaluation.hook_id != receipt.hook_id or not is_binary(evaluation.hook_id) or evaluation.hook_id == "" ->
+        evidence_refusal(:evaluation, index, "evaluation hook identity does not match its receipt", receipt)
+
+      not is_boolean(evaluation.matched?) or evaluation.matched? != receipt.matched? ->
+        evidence_refusal(:evaluation, index, "evaluation match state does not match its receipt", receipt)
+
+      receipt.status != :PARTIAL_ALIVE or receipt.standing != :observed_predicate_only ->
+        evidence_refusal(:evaluation, index, "evaluation standing is outside the admitted predicate-only contract", receipt)
+
+      receipt.authority != :UNAUTHORIZED or receipt.consequence != :none ->
+        evidence_refusal(:evaluation, index, "evaluation carries authority or consequence outside SELECT/CONSTRUCT", receipt)
+
+      receipt.executed != [] ->
+        evidence_refusal(:evaluation, index, "evaluation receipt claims executed consequence", receipt)
+
+      :actuation_authority not in receipt.blocked ->
+        evidence_refusal(:evaluation, index, "evaluation does not explicitly block actuation authority", receipt)
+
+      not is_map(receipt.identity) or not is_map(receipt.replay) ->
+        evidence_refusal(:evaluation, index, "evaluation identity/replay evidence is incomplete", receipt)
+
+      receipt.predicate_type == :external_trigger and
+          not MapSet.member?(observation_receipts, receipt.external_trigger_receipt_sha256) ->
+        evidence_refusal(
+          :evaluation,
+          index,
+          "external-trigger evaluation is detached from the exported observed Ash receipt",
+          receipt
+        )
+
+      not is_nil(receipt.external_trigger_receipt_sha256) and
+          not MapSet.member?(observation_receipts, receipt.external_trigger_receipt_sha256) ->
+        evidence_refusal(:evaluation, index, "evaluation references an unexported external trigger receipt", receipt)
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_intent(%Evaluation{matched?: false, intent: nil}, _receipt, _index), do: :ok
+
+  defp validate_intent(%Evaluation{matched?: true, intent: %Intent{} = intent}, receipt, index) do
+    cond do
+      intent.authority != :UNAUTHORIZED ->
+        evidence_refusal(:intent, index, "constructed intent carries actuation authority", intent)
+
+      intent.standing != :constructed_not_actuated ->
+        evidence_refusal(:intent, index, "constructed intent standing implies consequence", intent)
+
+      intent.requires_actuation_receipt? != true ->
+        evidence_refusal(:intent, index, "constructed intent does not require a downstream actuation receipt", intent)
+
+      intent.evaluation_receipt_sha256 != receipt.receipt_sha256 ->
+        evidence_refusal(:intent, index, "constructed intent is detached from its evaluation receipt", intent)
+
+      not is_binary(intent.target) or intent.target == "" ->
+        evidence_refusal(:intent, index, "constructed intent target is not a stable inert identifier", intent)
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_intent(evaluation, _receipt, index),
+    do:
+      refusal(:evaluations, "evaluation intent shape does not preserve constructed-not-actuated semantics", %{
+        index: index,
+        matched?: Map.get(evaluation, :matched?),
+        intent: inspect_type(Map.get(evaluation, :intent))
+      })
+
+  defp evidence_refusal(kind, index, detail, receipt) do
+    refusal(:frontier_evidence, detail, %{
+      kind: kind,
+      index: index,
+      receipt_sha256: Map.get(receipt, :receipt_sha256),
+      authority: Map.get(receipt, :authority),
+      consequence: Map.get(receipt, :consequence),
+      standing: Map.get(receipt, :standing),
+      executed: Map.get(receipt, :executed)
+    })
+  end
+
+  defp refusal(subject, detail, evidence \\ %{}) do
+    {:error, Refusal.new(:REFUSED_UNPROVEN_EQUIVALENCE, subject, detail, evidence)}
   end
 
   defp fingerprint(term) do
@@ -68,6 +353,14 @@ defmodule AshR2RML.FrontierEvidence do
   defp canonical_term(tuple) when is_tuple(tuple),
     do: tuple |> Tuple.to_list() |> Enum.map(&canonical_term/1)
 
+  defp canonical_term(nil), do: nil
+  defp canonical_term(value) when is_boolean(value), do: value
   defp canonical_term(atom) when is_atom(atom), do: Atom.to_string(atom)
   defp canonical_term(other), do: other
+
+  defp sha256?(value), do: is_binary(value) and Regex.match?(~r/\A[0-9a-f]{64}\z/, value)
+  defp sha256_prefixed?(value), do: is_binary(value) and Regex.match?(~r/\Asha256:[0-9a-f]{64}\z/, value)
+
+  defp inspect_type(%module{}), do: inspect(module)
+  defp inspect_type(value), do: value |> :erlang.term_to_binary() |> then(fn _ -> inspect(value) end)
 end
