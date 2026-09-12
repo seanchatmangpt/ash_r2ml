@@ -58,7 +58,6 @@ Conceptual essays, system architecture, theoretical rationale, and product invar
 - [Core Semantic Correspondence](topics/semantic_correspondence.md) — Principles of mapping Ash resources to R2RML constructs and SHACL closure.
 - [Ash vs W3C R2RML Side-by-Side](topics/r2rml-side-by-side.md) — Comparative overview of Ash DSL and R2RML Turtle structures.
 - [Closed-World Elixir vs Open-World RDF](topics/rdf-elixir-semantic-execution.md) — Semantic execution models in application code vs graph query engines.
-- [AshNeo4j Migration History](topics/migration_from_ash_neo4j.md) — Background and context on the fork from AshNeo4j.
 - [Why AshR2RML](topics/why-ashr2rml.md) — Semantic/graph query capability as a mapping decision, not a database decision, grounded in real `bench/RESULTS.md` numbers.
 
 ---

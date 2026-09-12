@@ -127,7 +127,6 @@ The bounded integration crown requires one fixture to survive all of the followi
 5. the same admitted SPARQL query executed through SPARQL.Client against a live Ontop endpoint;
 6. an equivalent supported query executed by SPARQL.ex over a local RDF.ex control graph;
 7. reference SQL over PostgreSQL;
-8. inherited Neo4j control query;
 9. normalized multiset comparison and stable receipts.
 
 A mismatch falsifies the corresponding equivalence claim. Passing all technical comparisons still does not authorize cutover.
@@ -140,7 +139,6 @@ This semantic-web layer is `ALIVE` only when exact-head verification demonstrate
 - SPARQL.Client execution against a real SPARQL Protocol endpoint;
 - JSON-LD → RDF → SHACL/profile → canonical mapping compilation;
 - Turtle and JSON-LD input paths render the same canonical R2RML for the admitted fixture;
-- Ontop CLI, SPARQL.Client/Ontop, SPARQL.ex local RDF, PostgreSQL SQL, and Neo4j control observations agree for the bounded corpus;
 - result identities and parity receipts are deterministic under irrelevant row ordering;
 - remote JSON-LD context dependencies fail closed unless explicitly admitted;
 - no SPARQL Update path is exposed as implicit semantic-verification authority;

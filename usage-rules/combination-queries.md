@@ -6,4 +6,3 @@ Union, intersection, combination, sorting, filtering, aggregates, and calculatio
 
 See [Query surfaces](query-surfaces.md).
 
-This compatibility file intentionally contains no Cypher guidance.

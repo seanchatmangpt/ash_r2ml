@@ -8,7 +8,6 @@ SPDX-License-Identifier: MIT
 
 ## Status
 
-This document defines the first migration PR for the `ash_r2rml` fork. The fork remains an AshNeo4j repository at the base revision; the new R2RML work is intentionally additive until behavioral equivalence is demonstrated.
 
 ## System invariant
 
@@ -24,7 +23,6 @@ Public ontologies / XAAS application profile / SHACL
        storage data layer      AshR2RML
        (control/authority)   (semantic compiler)
               |                   |
-       SQL / Neo4j today     canonical mapping IR
                                   |
                          R2RML + SHACL artifacts
                                   |
@@ -35,14 +33,11 @@ The first PR does **not** authorize the lower-right path to mutate data and does
 
 ## Why this is not search-and-replace
 
-The fork contains valuable, already-tested extension machinery: Spark DSL sections, compile-time verifiers, persisted mappings, relationship introspection, deterministic query construction, and an extensive Neo4j test suite. Replacing those surfaces before the new semantic path is executable would discard evidence.
 
 DfCM therefore keeps both topologies:
 
-- **Control topology:** existing `AshNeo4j.DataLayer`, Bolt, Cypher, and its full tests.
 - **Candidate topology:** `AshR2RML` Spark extension, canonical mapping IR, R2RML renderer, SHACL renderer, and validation receipt.
 
-A resource can carry both the `neo4j` and `r2rml` DSL blocks. Presence of both mappings is observable through `AshR2RML.Resource.Info`.
 
 ## R2RML projection
 

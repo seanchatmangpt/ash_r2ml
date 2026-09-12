@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+SPDX-FileCopyrightText: 2025 Matthew Graham Beanland and contributors
 SPDX-FileCopyrightText: 2026 ash_r2rml contributors
 
 SPDX-License-Identifier: MIT
@@ -470,7 +470,6 @@ AshR2RML deliberately does not:
 
 - replace AshPostgres, AshSql, Ecto, or another Ash data layer;
 - store RDF triples itself;
-- require Neo4j or another graph database;
 - implement a SPARQL optimizer;
 - infer arbitrary OWL semantics;
 - invent missing relationship or identity information;

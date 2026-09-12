@@ -24,7 +24,7 @@ defmodule AshR2RML.ParityReceipt do
   ]
 
   @type t :: %__MODULE__{
-          kind: :sparql_sql | :neo4j_postgres,
+          kind: :sparql_sql,
           subject: term(),
           left_system: atom() | String.t(),
           right_system: atom() | String.t(),
@@ -47,16 +47,16 @@ defmodule AshR2RML.Parity do
   Deterministic semantic-result comparator for side-by-side cutover evidence.
 
   Query execution is intentionally outside this module. Callers execute the
-  admitted SQL/SPARQL/Cypher queries, then pass their observed rows here. The
+  admitted SQL/SPARQL queries, then pass their observed rows here. The
   comparator normalizes result multisets and emits a stable receipt that can be
   attached to `AshR2RML.CompilationReceipt`.
   """
 
   alias AshR2RML.ParityReceipt
 
-  @spec compare(:sparql_sql | :neo4j_postgres, term(), list(), list(), map()) :: ParityReceipt.t()
+  @spec compare(:sparql_sql, term(), list(), list(), map()) :: ParityReceipt.t()
   def compare(kind, subject, left_rows, right_rows, metadata \\ %{})
-      when kind in [:sparql_sql, :neo4j_postgres] and is_list(left_rows) and is_list(right_rows) do
+      when kind == :sparql_sql and is_list(left_rows) and is_list(right_rows) do
     left = normalize_multiset(left_rows)
     right = normalize_multiset(right_rows)
     left_hash = sha256(left)
@@ -150,9 +150,7 @@ defmodule AshR2RML.Parity do
   defp query_hash(query), do: sha256(to_string(query))
 
   defp default_left(:sparql_sql), do: :sparql
-  defp default_left(:neo4j_postgres), do: :neo4j
   defp default_right(:sparql_sql), do: :sql
-  defp default_right(:neo4j_postgres), do: :postgres
 
   defp get(map, key) do
     Map.get(map, key, Map.get(map, Atom.to_string(key)))

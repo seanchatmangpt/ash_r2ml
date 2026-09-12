@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+SPDX-FileCopyrightText: 2025 Matthew Graham Beanland and contributors
 SPDX-FileCopyrightText: 2026 ash_r2rml contributors
 
 SPDX-License-Identifier: MIT
@@ -214,8 +214,6 @@ AshR2RML does not:
 
 - replace AshPostgres or another Ash data layer;
 - write triples as its persistence model;
-- require Neo4j;
-- render Cypher;
 - manage graph indexes;
 - implement graph traversal expressions;
 - implement vector/spatial query engines;

@@ -63,7 +63,6 @@ BLOCKED:
 - None for in-memory and compilation test suites. Live Ontop container tests require PostgreSQL docker service.
 
 UNSUPPORTED:
-- Direct Cypher/Neo4j query execution within the R2RML compiler (donor material isolated/removed from core contract).
 
 STANDING:
 - ALIVE (Fortune 5 & Core IR Semantic Mapping Suite)

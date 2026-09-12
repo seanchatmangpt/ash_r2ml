@@ -38,14 +38,12 @@ Ash resources, SQL schema, R2RML, and generated SHACL are projections of the sam
 
 Preserve both lawful worlds until behavioral equivalence is observed:
 
-1. Keep existing Neo4j/Bolt/Cypher implementation and tests intact as a control path.
 2. Keep the existing `r2rml` Spark DSL as a compatibility/projection surface while ontology-first compilation is proven.
 3. Admit ontology/application-profile/SHACL information into one canonical semantic IR.
 4. Preserve all lawful relational storage candidates when constraints do not force a unique selection.
 5. Refuse executable projection when an irreversible storage choice remains unadmitted.
 6. Manufacture Ash, PostgreSQL DDL, R2RML, and SHACL from the same IR.
 7. Treat successful projection as `PARTIAL_ALIVE`, not runtime or cutover readiness.
-8. Require observed SQL/SPARQL behavioral parity and Neo4j/PostgreSQL semantic parity against the same admitted subject.
 9. Cutover is a separate authorized actuation and requires its own receipt.
 
 ## SHACL boundary
@@ -111,7 +109,6 @@ Run, in order:
 3. `mix test`
 4. full CI matrix from `.github/workflows/ci.yaml`
 5. PostgreSQL + real OBDA paired SQL/SPARQL corpus
-6. Neo4j/PostgreSQL semantic comparison corpus
 7. explicit cutover-authority receipt
 
 Only observed execution can promote the relevant parity field to `VERIFIED`. Only both parity receipts plus explicit authority can make `cutover_ready?/1` true.

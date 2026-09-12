@@ -7,7 +7,6 @@
 # - generated PostgreSQL + R2RML executes through Ontop CLI
 # - the same admitted query executes through SPARQL.Client against Ontop HTTP
 # - SPARQL.ex executes an equivalent query over a local RDF.ex control graph
-# - Neo4j remains the inherited control graph
 # Technical parity never grants cutover authority.
 
 defmodule AshR2RML.ObdaCrown do
@@ -15,7 +14,6 @@ defmodule AshR2RML.ObdaCrown do
   @postgres_db "ash_r2rml"
   @postgres_user "postgres"
   @postgres_password System.get_env("POSTGRES_PASSWORD") || System.get_env("PGPASSWORD") || "postgres"
-  @neo4j_url "http://127.0.0.1:7474/db/neo4j/tx/commit"
   @ontop_image "ontop/ontop:5.5.0"
   @ontop_container "ash-r2ml-ontop-endpoint"
   @ontop_endpoint "http://127.0.0.1:8080/sparql"
@@ -111,11 +109,6 @@ defmodule AshR2RML.ObdaCrown do
   ORDER BY account
   """
 
-  @neo4j_query """
-  MATCH (account:Account)-[:MEMBER_OF]->(organization:Organization)
-  RETURN account.iri AS account, organization.iri AS organization
-  ORDER BY account
-  """
 
   def run! do
     jdbc_evidence = verify_pgjdbc!()
@@ -280,41 +273,13 @@ defmodule AshR2RML.ObdaCrown do
 
     unless local_sql.verified?, do: raise("SPARQL.ex local RDF/PostgreSQL semantic mismatch")
 
-    # Execution topology 4: inherited Neo4j control graph.
-    seed_neo4j!()
-    neo4j_rows = neo4j_query!(@neo4j_query)
-
-    neo4j_postgres =
-      AshR2RML.Parity.compare(
-        :neo4j_postgres,
-        :organization_account,
-        neo4j_rows,
-        sql_rows,
-        %{
-          left_system: :neo4j,
-          right_system: :postgres,
-          left_query: @neo4j_query,
-          right_query: @sql,
-          fixture_sha256: fixture_sha256,
-          mapping_sha256: cli_observation.mapping_sha256
-        }
-      )
-
-    unless neo4j_postgres.verified?, do: raise("Neo4j/PostgreSQL parity mismatch")
-
     technical_receipt =
       compilation.receipt
       |> AshR2RML.Compiler.attach_parity_witness(:sparql_sql, Map.from_struct(protocol_sql))
-      |> AshR2RML.Compiler.attach_parity_witness(
-        :neo4j_postgres,
-        Map.from_struct(neo4j_postgres)
-      )
 
     unless technical_receipt.query_parity == :VERIFIED,
       do: raise("SPARQL/SQL witness was not admitted")
 
-    unless technical_receipt.neo4j_postgres_parity == :VERIFIED,
-      do: raise("Neo4j/Postgres witness was not admitted")
 
     if AshR2RML.Compiler.cutover_ready?(technical_receipt),
       do: raise("technical parity must not manufacture cutover authority")
@@ -333,7 +298,6 @@ defmodule AshR2RML.ObdaCrown do
           sparql_ex_local_sql: local_sql,
           ontop_cli_sql: cli_sql,
           sparql_client_sql: protocol_sql,
-          neo4j_postgres: neo4j_postgres,
           external_dependencies: %{
             ontop_image: @ontop_image,
             pgjdbc: %{
@@ -347,7 +311,7 @@ defmodule AshR2RML.ObdaCrown do
       )
     )
 
-    IO.puts("ALIVE bounded corpus: Turtle/JSON-LD + SPARQL.ex/SPARQL.Client/Ontop + Postgres/Neo4j parity")
+    IO.puts("ALIVE bounded corpus: Turtle/JSON-LD + SPARQL.ex/SPARQL.Client/Ontop + PostgreSQL semantic parity")
   end
 
   defp local_fixture_graph do
@@ -507,60 +471,6 @@ defmodule AshR2RML.ObdaCrown do
       )
 
     AshR2RML.OBDA.Ontop.parse_csv(output)
-  end
-
-  defp seed_neo4j! do
-    cypher!("MATCH (n) DETACH DELETE n")
-
-    cypher!("""
-    CREATE (o1:Organization {id: 'org-1', iri: 'https://example.com/id/organization/org-1'}),
-           (o2:Organization {id: 'org-2', iri: 'https://example.com/id/organization/org-2'}),
-           (a1:Account {id: 'acct-1', iri: 'https://example.com/id/account/acct-1'}),
-           (a2:Account {id: 'acct-2', iri: 'https://example.com/id/account/acct-2'}),
-           (a3:Account {id: 'acct-3', iri: 'https://example.com/id/account/acct-3'}),
-           (a1)-[:MEMBER_OF]->(o1),
-           (a2)-[:MEMBER_OF]->(o1),
-           (a3)-[:MEMBER_OF]->(o2)
-    """)
-  end
-
-  defp neo4j_query!(statement) do
-    response = cypher!(statement)
-    result = response["results"] |> List.first()
-    columns = result["columns"]
-
-    Enum.map(result["data"], fn %{"row" => row} ->
-      Map.new(Enum.zip(columns, row))
-    end)
-  end
-
-  defp cypher!(statement) do
-    payload = Jason.encode!(%{statements: [%{statement: statement, resultDataContents: ["row"]}]})
-
-    {output, 0} =
-      System.cmd(
-        "curl",
-        [
-          "--fail-with-body",
-          "--silent",
-          "--show-error",
-          "-u",
-          "neo4j:password",
-          "-H",
-          "Content-Type: application/json",
-          "-d",
-          payload,
-          @neo4j_url
-        ],
-        stderr_to_stdout: true
-      )
-
-    decoded = Jason.decode!(output)
-
-    case decoded["errors"] do
-      [] -> decoded
-      errors -> raise "Neo4j control query failed: #{inspect(errors)}"
-    end
   end
 
   defp json_term(%_{} = struct), do: struct |> Map.from_struct() |> json_term()

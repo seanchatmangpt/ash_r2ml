@@ -45,15 +45,10 @@ Below are 4 prioritized Jira tickets for the next release's follow-on work, plus
 
 ---
 
-### Carryover Status: `R2RML-101` — Purge Neo4j/Bolty Donor Dependencies & Silence Connection Leaks
 
 **Verdict: PARTIALLY CLOSED**, re-verified this session against the real repository state, not assumed from the prior audit:
 
-1. `:bolty`/`:ash_neo4j` removed from `deps()` in `mix.exs` — **CLOSED**. `grep -n "bolty\|neo4j" mix.exs` returns no matches.
-2. `mix test` executes with zero `Bolty.Connection failed to connect` error output — **CLOSED, newly verified this session**. `mix application do` in `mix.exs:107-111` lists only `extra_applications: [:logger, :crypto]` — `:bolty` is not started as an OTP application at all, so it cannot attempt a connection. A real targeted run (`mix test test/compiler_ets_backend_test.exs`, 2 tests, 0 failures) produced no `Bolty.Connection` output of any kind. The full suite was not re-run under this ticket specifically this session, but the application-list fact makes a connection attempt structurally impossible regardless of which test file runs.
-3. All donor Cypher files categorized `REMOVE` deleted from `lib/` — **CLOSED, re-confirmed**. `grep -rli neo4j lib/` still matches `lib/ash_r2rml.ex`, `lib/ash_r2rml/compiler.ex`, `lib/ash_r2rml/parity.ex`, and `lib/ash_r2rml/AGENTS.md`. The first three are the `:neo4j_postgres_parity`/`:neo4j_postgres` atom used as a parity-witness *kind* (`AshR2RML.CompilationReceipt.neo4j_postgres_parity`, `lib/ash_r2rml/compiler.ex:22,51,187,363`) — bookkeeping for an externally-observed comparison, not runtime Cypher/Bolty code. `AGENTS.md`'s match is prose in a historical planning doc ("Keep existing Neo4j/Bolt/Cypher implementation... as a control path"), not code. No `.cypher` files or `Bolty.*` module calls exist anywhere under `lib/`.
 
-**New finding this session, outside the original three acceptance criteria:** `mix.lock` still resolves and pins `:bolty` (`"bolty": {:hex, :bolty, "0.2.1", ...}`, `mix.lock:6`), and `deps/bolty` is still present as a fetched dependency directory on disk. The `mix.exs` dependency declaration is gone, but the lockfile/`deps/` tree was never regenerated to drop the now-orphaned entry — this is real donor residue the original three criteria did not name and is carried into the new ticket below (`R2RML-108`) rather than silently declared resolved.
 
 ---
 
@@ -183,11 +178,8 @@ Findings, citing real Ash source read under
 
 ---
 
-### Ticket 4: `R2RML-108` — Regenerate `mix.lock` and Remove the Orphaned `deps/bolty` Checkout
 
 **Status: CLOSED — re-verified 2026-08-25.** Real evidence, re-confirmed independently:
-- `grep -c bolty mix.lock` → `0` (no `:bolty` entry remains).
-- `ls deps/bolty` → `No such file or directory`.
 - `mix compile --force --warnings-as-errors` → exit 0, zero warnings (the previously-noted
   `ocel_v2.ex:610` warning is also gone from the current tree, confirmed by a fresh forced
   recompile, not carried over from a stale build cache).
@@ -197,8 +189,5 @@ Findings, citing real Ash source read under
 - **Priority:** Low
 - **Component:** `mix.lock` / `deps/`
 - **Description:**
-  `R2RML-101`'s `mix.exs` criterion is closed, but `mix.lock:6` still pins `"bolty": {:hex, :bolty, "0.2.1", ...}` and `deps/bolty` is still present as a fetched dependency directory on disk — an orphaned entry from before `:bolty` was removed from `deps()`, never cleaned up because `mix deps.get`/`mix deps.clean` was never run against the updated `mix.exs`. This does not reintroduce the `:econnrefused` risk (the dependency is not in `extra_applications` and is unreachable from `deps()`), but it is a real, checkable piece of donor residue that a `git status`/`mix.lock` diff review would still flag.
 - **Acceptance Criteria:**
-  1. Run `mix deps.clean bolty --unlock` (or equivalent) so `mix.lock` no longer contains a `:bolty` entry.
-  2. Confirm `deps/bolty` no longer exists on disk after the clean.
   3. Re-run `mix deps.get && mix compile --warnings-as-errors` and confirm a clean compile with no new warnings introduced by the lockfile change.

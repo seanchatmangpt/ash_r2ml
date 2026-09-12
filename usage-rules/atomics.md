@@ -6,4 +6,3 @@ Ash atomics, bulk writes, transactions, optimistic locking, and mutation semanti
 
 See [Actions and mutations](actions.md) for the AshR2RML boundary.
 
-This file remains only so existing `usage_rules` links from the AshNeo4j donor history do not resolve to stale Cypher guidance.

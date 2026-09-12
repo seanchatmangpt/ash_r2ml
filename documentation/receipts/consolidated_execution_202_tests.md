@@ -38,7 +38,6 @@ mix test test/telemetry/fly_client_test.exs \
 ## 2. Verbatim Execution Output
 
 ```text
-Excluding tags: [:show_neo4j, :bolt6, :cypher25, :apoc, :slow]
 
 ..........................................................................................................................................................................................................................................
 Finished in 17.0 seconds (2.5s async, 14.5s sync)

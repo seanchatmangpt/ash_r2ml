@@ -284,7 +284,7 @@ defmodule AshR2RML.OntologyFirstCompilerTest do
     assert first.receipt.shacl_sha256 == second.receipt.shacl_sha256
   end
 
-  test "cutover requires external parity witnesses and separate authority" do
+  test "cutover requires external query parity and separate authority" do
     assert {:ok, compilation} = AshR2RML.Compiler.compile(profile())
 
     receipt =
@@ -293,13 +293,8 @@ defmodule AshR2RML.OntologyFirstCompilerTest do
         verified?: true,
         receipt_sha256: "sparql-sql-receipt"
       })
-      |> AshR2RML.Compiler.attach_parity_witness(:neo4j_postgres, %{
-        verified?: true,
-        receipt_sha256: "neo4j-postgres-receipt"
-      })
 
     assert receipt.query_parity == :VERIFIED
-    assert receipt.neo4j_postgres_parity == :VERIFIED
     refute AshR2RML.Compiler.cutover_ready?(receipt)
     assert :cutover_authority in receipt.blocked
   end

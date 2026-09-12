@@ -6,7 +6,6 @@ SPDX-License-Identifier: MIT
 
 # AshR2RML benchmarks
 
-AshR2RML benchmarks measure semantic compilation and virtual-RDF integration costs. They do not benchmark Neo4j, Cypher, graph indexes, vector search, spatial pushdown, or any other database/engine not directly part of AshR2RML's own supported stack (Ash, `Ash.DataLayer.Ets`, `AshPostgres`, Ontop).
 
 ## Benchmark classes
 

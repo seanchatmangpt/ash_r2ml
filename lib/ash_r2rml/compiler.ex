@@ -19,7 +19,6 @@ defmodule AshR2RML.CompilationReceipt do
     :r2rml_sha256,
     :shacl_sha256,
     :query_parity,
-    :neo4j_postgres_parity,
     :cutover_authority,
     classes_admitted: 0,
     attributes_admitted: 0,
@@ -48,7 +47,6 @@ defmodule AshR2RML.CompilationReceipt do
           r2rml_sha256: String.t() | nil,
           shacl_sha256: String.t() | nil,
           query_parity: :UNKNOWN | :VERIFIED,
-          neo4j_postgres_parity: :UNKNOWN | :VERIFIED,
           cutover_authority: :UNAUTHORIZED | :AUTHORIZED | nil,
           classes_admitted: non_neg_integer(),
           attributes_admitted: non_neg_integer(),
@@ -163,10 +161,9 @@ defmodule AshR2RML.Compiler do
     end
   end
 
-  @doc "Cutover requires both observed parity witnesses and an explicit authority receipt."
+  @doc "Cutover requires an observed query-parity witness and an explicit authority receipt."
   def cutover_ready?(%CompilationReceipt{
         query_parity: :VERIFIED,
-        neo4j_postgres_parity: :VERIFIED,
         cutover_authority: :AUTHORIZED,
         blocked: []
       }),
@@ -176,22 +173,13 @@ defmodule AshR2RML.Compiler do
 
   @doc "Attach an externally observed parity receipt without executing the compared systems."
   def attach_parity_witness(%CompilationReceipt{} = receipt, kind, witness)
-      when kind in [:sparql_sql, :neo4j_postgres] and is_map(witness) do
+      when kind == :sparql_sql and is_map(witness) do
     verified? = Map.get(witness, :verified?, Map.get(witness, "verified?", false))
     witness_id = Map.get(witness, :receipt_sha256, Map.get(witness, "receipt_sha256"))
 
     if verified? and is_binary(witness_id) and witness_id != "" do
-      receipt =
-        case kind do
-          :sparql_sql -> %{receipt | query_parity: :VERIFIED}
-          :neo4j_postgres -> %{receipt | neo4j_postgres_parity: :VERIFIED}
-        end
-
-      blocked =
-        case kind do
-          :sparql_sql -> List.delete(receipt.blocked, :sparql_sql_behavioral_parity)
-          :neo4j_postgres -> List.delete(receipt.blocked, :neo4j_postgres_semantic_parity)
-        end
+      receipt = %{receipt | query_parity: :VERIFIED}
+      blocked = List.delete(receipt.blocked, :sparql_sql_behavioral_parity)
 
       %{
         receipt
@@ -360,7 +348,6 @@ defmodule AshR2RML.Compiler do
       r2rml_sha256: sha256(r2rml),
       shacl_sha256: sha256(shacl),
       query_parity: :UNKNOWN,
-      neo4j_postgres_parity: :UNKNOWN,
       cutover_authority: :UNAUTHORIZED,
       classes_admitted: length(resources),
       attributes_admitted: Enum.sum(Enum.map(resources, &length(&1.attributes))),
@@ -385,7 +372,6 @@ defmodule AshR2RML.Compiler do
       verified: [:canonical_mapping_ir_projection, :deterministic_render_identity],
       blocked: [
         :sparql_sql_behavioral_parity,
-        :neo4j_postgres_semantic_parity,
         :cutover_authority
       ],
       refusals: []
@@ -400,12 +386,10 @@ defmodule AshR2RML.Compiler do
       profile_hash: ir && ir.profile_hash,
       shacl_input_hash: ir && ir.shacl_hash,
       query_parity: :UNKNOWN,
-      neo4j_postgres_parity: :UNKNOWN,
       cutover_authority: :UNAUTHORIZED,
       blocked: [
         :semantic_projection,
         :sparql_sql_behavioral_parity,
-        :neo4j_postgres_semantic_parity,
         :cutover_authority
       ],
       refusals: refusals

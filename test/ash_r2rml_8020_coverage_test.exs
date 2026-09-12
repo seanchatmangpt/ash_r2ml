@@ -34,7 +34,6 @@ defmodule AshR2RML.EightyTwentyCoverageTest do
     test "cutover_ready?/1 enforces verified parity witnesses and cutover authority" do
       unready = %CompilationReceipt{
         query_parity: :UNKNOWN,
-        neo4j_postgres_parity: :UNKNOWN,
         cutover_authority: nil,
         blocked: [:sparql_sql_behavioral_parity]
       }
@@ -43,7 +42,6 @@ defmodule AshR2RML.EightyTwentyCoverageTest do
 
       ready = %CompilationReceipt{
         query_parity: :VERIFIED,
-        neo4j_postgres_parity: :VERIFIED,
         cutover_authority: :AUTHORIZED,
         blocked: []
       }

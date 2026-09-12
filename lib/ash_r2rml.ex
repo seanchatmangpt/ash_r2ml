@@ -140,7 +140,6 @@ defmodule AshR2RML do
           r2rml_sha256: AshR2RML.Compiler.sha256(r2rml),
           shacl_sha256: AshR2RML.Compiler.sha256(shacl),
           query_parity: :UNKNOWN,
-          neo4j_postgres_parity: :UNKNOWN,
           cutover_authority: :UNAUTHORIZED,
           classes_admitted: length(bundle.resources),
           executed: [:canonical_mapping_ir, :r2rml_render, :shacl_render],

@@ -13,9 +13,6 @@ Reviewing `ash_r2rml` through the strict lens of Ash architectural purity, Spark
 - **Critique:** `AshR2RML.Introspection.identities/2` currently inspects Spark DSL entities dynamically during transformer execution to recover primary keys. If called before `Ash.Resource.Info.primary_key/1` finishes, fallback logic estimates keys from attributes (`primary_key?: true`).
 - **Ash Invariant Risk:** In Ash, primary keys can be composite or derived via custom data layers. Guessing identity keys from un-compiled Spark DSL entities breaks the principle that `Ash` owns resource semantics.
 
-### 2. Donor Code Residue (`AshNeo4j` / `Bolty`)
-- **Critique:** `mix.exs` still depends on `:bolty` and `:ash_neo4j` modules. Tests raise `:econnrefused` errors when Bolty connection pools attempt to connect to port 7687 during generic `mix test` runs.
-- **AGENTS.md Law:** Fork migration requires complete removal of Neo4j/Bolty/Cypher donor infrastructure from runtime unless explicitly justified as an optional adapter.
 
 ### 3. Legacy Adapter Dual-Path Fallbacks
 - **Critique:** `AshR2RML.Resource.LegacyAdapter.convert/1` maintains compatibility logic for legacy DSL options (`attribute_mappings`, `relationship_mappings`).
@@ -29,17 +26,12 @@ Below are the 4 prioritized Jira tickets for sprint execution:
 
 ---
 
-### Ticket 1: `R2RML-101` — Purge Neo4j/Bolty Donor Dependencies & Silence Connection Leaks
 
 - **Type:** Technical Debt / Architecture  
 - **Priority:** High  
 - **Component:** Core / Mix Dependencies  
 - **Description:**  
-  Remove `:bolty` and `:ash_neo4j` runtime dependencies from `mix.exs`. Clean up `Bolty.Connection` background connection pool attempts during ExUnit test execution so generic `mix test` runs zero non-test network processes.
 - **Acceptance Criteria:**  
-  1. `:bolty` removed from `deps()` in `mix.exs`.
-  2. `mix test` executes with zero `Bolty.Connection failed to connect` error log outputs.
-  3. All donor Cypher files categorized as `REMOVE` are deleted from `lib/`.
 
 ---
 

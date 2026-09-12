@@ -94,4 +94,3 @@ A different Ash data layer is supported only for the subset for which an adapter
 
 ## Explicit non-goals
 
-AshR2RML does not provide Neo4j persistence, Cypher rendering, graph traversal expressions, vector indexes, spatial indexes, or a graph-database sandbox.

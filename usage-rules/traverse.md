@@ -8,4 +8,3 @@ See [Query surfaces](query-surfaces.md), [Relationships](relationships.md), and 
 
 Variable-length path semantics, property paths, and SPARQL algebra are not implemented inside AshR2RML.
 
-This file remains only to prevent donor-era links from serving stale traversal/Cypher instructions.

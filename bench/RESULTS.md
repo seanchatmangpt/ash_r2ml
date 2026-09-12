@@ -82,7 +82,5 @@ BENCH_ONTOP_RUNS=3 MIX_ENV=test mix run bench/obda_query_latency.exs
 
 ## What is not benchmarked here
 
-No graph database (Neo4j or otherwise) is exercised anywhere in this repository's benchmark
-suite. `AshR2RML.Parity`'s `:neo4j_postgres` naming is a parity-witness *kind* for an
 externally-observed comparison an operator may attach — AshR2RML does not run, query, or
 benchmark any graph database itself.
