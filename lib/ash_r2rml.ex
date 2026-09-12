@@ -39,8 +39,24 @@ defmodule AshR2RML do
   @doc "Compile one or more Ash resources or profile map into a closed bundle."
   defdelegate compile(resources_or_profile), to: AshR2RML.Compiler, as: :compile
 
-  @doc "Compile an admitted profile into a manufactured ggen bundle."
-  defdelegate compile_bundle(profile), to: AshR2RML.Ggen
+  @doc """
+  Compile an admitted profile into a manufactured ggen bundle.
+
+  Protocol projections are compiler switches rather than design surfaces. For
+  example, `graphql: true` emits the canonical read-only semantic GraphQL
+  projection; `graphql: false` (the default) emits none. Custom application
+  GraphQL belongs in `ash_graphql` rather than this semantic compiler.
+  """
+  def compile_bundle(profile, opts \\ []), do: AshR2RML.Ggen.compile_bundle(profile, opts)
+
+  @doc """
+  Compile API-adjacent projections from one admitted semantic profile.
+
+  The canonical GraphQL path remains read-only and zero-configuration; enabling
+  it does not add `AshGraphql.Resource` to generated Ash resources or grant any
+  mutation authority.
+  """
+  def compile_api_bundle(profile, opts \\ []), do: AshR2RML.Ggen.compile_api_bundle(profile, opts)
 
   @doc "Emit ontology, SHACL, and R2RML TTL for cloud ggen directly from Ash resources."
   defdelegate compile_ash_ttl_bundle(resources_or_bundle), to: AshR2RML.Ggen
