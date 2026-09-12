@@ -28,8 +28,19 @@ if Code.ensure_loaded?(AshGraphql.Resource) do
     defp domain_enabled?(dsl_or_module) do
       case domain(dsl_or_module) do
         nil -> true
-        domain -> resource_enabled?(domain)
+        domain -> domain_opt_enabled?(domain)
       end
+    end
+
+    # The domain may not be a compiled Spark DSL module at the time a resource's
+    # transformers run -- e.g. a fixture that defines the domain *after* the
+    # resources in the same file, in which case `Extension.get_opt/4` raises
+    # "... is not a Spark DSL module". Absent a readable opt-out the answer is the
+    # schema default (`true`), which is what an unset `enabled?` means anyway.
+    defp domain_opt_enabled?(domain) do
+      resource_enabled?(domain)
+    rescue
+      _ -> true
     end
 
     defp domain(dsl_or_module) do

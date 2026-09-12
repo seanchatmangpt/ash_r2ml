@@ -43,7 +43,7 @@ if Code.ensure_loaded?(AshGraphql.Resource) do
     end
 
     defp project(dsl) do
-      singular = Ash.Resource.Info.short_name(dsl)
+      singular = derive_type(dsl)
       plural = :"#{singular}s"
 
       dsl =
@@ -58,6 +58,20 @@ if Code.ensure_loaded?(AshGraphql.Resource) do
       |> Enum.reduce(dsl, fn query, acc ->
         Transformer.add_entity(acc, [:graphql, :queries], query)
       end)
+    end
+
+    # `short_name/1` is `[:resource, :short_name] || persisted(:module) |> ...`
+    # (deps/ash/lib/ash/resource/info.ex:178). `transform/1` already returns early
+    # when `:module` is nil, so this fallback only hardens against a `short_name`
+    # that resolves to nil for any other reason -- the GraphQL type is never nil.
+    defp derive_type(dsl) do
+      Ash.Resource.Info.short_name(dsl) ||
+        dsl
+        |> Transformer.get_persisted(:module)
+        |> Module.split()
+        |> List.last()
+        |> Macro.underscore()
+        |> String.to_atom()
     end
 
     defp read_actions(dsl) do

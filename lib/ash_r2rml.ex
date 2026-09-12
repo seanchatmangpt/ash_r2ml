@@ -28,10 +28,26 @@ defmodule AshR2RML do
     ]
   }
 
+  # Auto-projection: see `AshR2RML.Resource`'s identical attribute. `AshR2RML` is
+  # the consumer-facing extension in every real fixture, so the same
+  # `add_extensions` expansion must apply here or "declare `AshR2RML` and get a
+  # read-only GraphQL projection" does not hold.
+  @auto_graphql_extensions (if Code.ensure_loaded?(AshGraphql.Resource) do
+                              [AshR2RML.Graphql, AshGraphql.Resource]
+                            else
+                              []
+                            end)
+
+  @knowledge_hooks AshR2RML.KnowledgeHook.Dsl.section()
+
   use Spark.Dsl.Extension,
-    sections: [@r2rml],
-    transformers: [AshR2RML.PersistMapping],
-    verifiers: [AshR2RML.VerifyMapping]
+    sections: [@r2rml, @knowledge_hooks],
+    transformers: [
+      AshR2RML.PersistMapping,
+      AshR2RML.KnowledgeHook.Transformers.RegisterDispatcher
+    ],
+    verifiers: [AshR2RML.VerifyMapping],
+    add_extensions: @auto_graphql_extensions
 
   @doc "Compile one Ash resource into its normalized semantic mapping."
   defdelegate mapping(resource), to: AshR2RML.Resource.Info
