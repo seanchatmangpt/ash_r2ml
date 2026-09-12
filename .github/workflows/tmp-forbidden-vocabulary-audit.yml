@@ -18,21 +18,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Materialize exact forbidden-vocabulary inventory
+      - name: Materialize exact forbidden-vocabulary file inventory
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p .audit
           {
-            echo '# Temporary forbidden vocabulary inventory'
+            echo '# Temporary forbidden vocabulary file inventory'
             echo
-            echo '## Content matches'
-            git grep -nIi -E 'neo4j|ash[_-]?neo4j|AshNeo4j|bolt://|neo4j://|cypher' -- . \
+            echo '## Files whose contents match'
+            git grep -Il -E 'neo4j|ash[_-]?neo4j|AshNeo4j|bolt://|neo4j://|cypher' -- . \
               ':(exclude).github/workflows/tmp-forbidden-vocabulary-audit.yml' \
-              ':(exclude).audit/forbidden-vocabulary.txt' || true
+              ':(exclude).audit/forbidden-vocabulary.txt' | sort -u || true
             echo
-            echo '## Filename matches'
-            git ls-files | grep -iE 'neo4j|cypher' || true
+            echo '## Filenames that match'
+            git ls-files | grep -iE 'neo4j|cypher' | sort -u || true
           } > .audit/forbidden-vocabulary.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -40,6 +40,6 @@ jobs:
           if git diff --cached --quiet; then
             echo 'Inventory unchanged'
           else
-            git commit -m 'chore: materialize forbidden vocabulary inventory'
+            git commit -m 'chore: refresh forbidden vocabulary inventory'
             git push
           fi
