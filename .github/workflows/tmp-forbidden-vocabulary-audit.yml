@@ -19,7 +19,9 @@ jobs:
         with:
           fetch-depth: 1
       - name: Apply deterministic cleanup
-        run: python3 .github/tmp_cleanup_graph_db.py
+        run: |
+          python3 .github/tmp_cleanup_graph_db.py
+          python3 .github/tmp_finalize_residue.py
       - name: Commit cleanup result and residual receipt
         shell: bash
         run: |
