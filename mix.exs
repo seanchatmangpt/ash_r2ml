@@ -81,6 +81,11 @@ defmodule AshR2RML.MixProject do
           AshR2RML.Policy,
           AshR2RML.Provenance
         ],
+        "GraphQL projection": [
+          AshR2RML.Graphql,
+          AshR2RML.Graphql.Info,
+          AshR2RML.Graphql.Schema
+        ],
         Reactor: ~r/AshR2RML\.Reactor/,
         Telemetry: ~r/AshR2RML\.Telemetry/,
         Internals: ~r/.*/
@@ -114,7 +119,8 @@ defmodule AshR2RML.MixProject do
     [
       {:ash, "~> 3.0 and >= 3.28.0"},
       {:ash_postgres, "~> 2.0", only: [:test]},
-      {:ash_graphql, "~> 1.10", only: [:test]},
+      {:ash_graphql, "~> 1.10", optional: true},
+      {:absinthe, "~> 1.7", optional: true},
       {:ash_json_api, "~> 1.7", only: [:test]},
       {:ash_csv, "~> 0.9.8", only: [:test]},
       {:ash_cubdb, "~> 0.6.2", only: [:test]},
