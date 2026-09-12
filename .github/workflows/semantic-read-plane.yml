@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 ash_r2rml contributors <https://github.com/seanchatmangpt/ash_r2rml/graphs/contributors>
+#
+# SPDX-License-Identifier: MIT
+
+name: Semantic Read Plane
+
+on: [push, pull_request]
+
+concurrency:
+  group: semantic-read-plane-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Database-free verifier for the canonical external semantic read plane.
+# This exists independently of the inherited Neo4j/OBDA integration topology:
+# schema manufacture, no-write invariants, customization refusal, and sibling
+# projection replay do not require a database to prove.
+jobs:
+  graphql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir / Erlang (from .tool-versions)
+        uses: jdx/mise-action@v2
+
+      - name: Cache exact-toolchain deps and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-semantic-read-plane-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Compile with warnings as errors
+        run: mix compile --force --warnings-as-errors
+
+      - name: Verify canonical GraphQL projection
+        run: mix test test/ggen_api_bundle_test.exs --trace
