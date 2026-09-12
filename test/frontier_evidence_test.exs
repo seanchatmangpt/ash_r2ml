@@ -42,7 +42,7 @@ defmodule AshR2RML.FrontierEvidenceTest do
     assert :ok = FrontierEvidence.verify(first)
   end
 
-  test "refuses observation authority widening and claimed execution" do
+  test "refuses observation authority widening and non-observation execution" do
     {[observation], evaluations} = native_evidence()
 
     assert {:error, %Refusal{code: :REFUSED_UNPROVEN_EQUIVALENCE, detail: detail}} =
@@ -61,7 +61,7 @@ defmodule AshR2RML.FrontierEvidenceTest do
                producer_head: @producer_head
              )
 
-    assert detail =~ "executed consequence"
+    assert detail =~ "execution trace"
   end
 
   test "refuses widened constructed intent authority" do
@@ -77,6 +77,32 @@ defmodule AshR2RML.FrontierEvidenceTest do
              )
 
     assert detail =~ "actuation authority"
+  end
+
+  test "refuses evaluation consequence or execution outside SELECT/CONSTRUCT" do
+    {observations, [evaluation]} = native_evidence()
+
+    consequence_receipt = %{evaluation.receipt | consequence: :actuated}
+
+    assert {:error, %Refusal{code: :REFUSED_UNPROVEN_EQUIVALENCE, detail: detail}} =
+             FrontierEvidence.from_knowledge_hooks(
+               observations,
+               [%{evaluation | receipt: consequence_receipt}],
+               producer_head: @producer_head
+             )
+
+    assert detail =~ "authority/consequence"
+
+    executed_receipt = %{evaluation.receipt | executed: [:external_trigger_witness_admission, :do]}
+
+    assert {:error, %Refusal{code: :REFUSED_UNPROVEN_EQUIVALENCE, detail: detail}} =
+             FrontierEvidence.from_knowledge_hooks(
+               observations,
+               [%{evaluation | receipt: executed_receipt}],
+               producer_head: @producer_head
+             )
+
+    assert detail =~ "execution trace"
   end
 
   test "refuses evaluation detached from exported observation receipt" do
