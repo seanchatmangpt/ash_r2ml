@@ -16,9 +16,7 @@ defmodule AshR2RML.FrontierEvidenceIdentityTest do
     tampered = %{observation | subject: Map.put(observation.subject, :name, "tampered.action")}
 
     assert {:error, %Refusal{code: :REFUSED_UNPROVEN_EQUIVALENCE, detail: detail}} =
-             FrontierEvidence.from_knowledge_hooks([tampered], evaluations, triggers,
-               producer_head: @producer_head
-             )
+             FrontierEvidence.from_knowledge_hooks([tampered], evaluations, triggers, producer_head: @producer_head)
 
     assert detail =~ "replay descriptor" or detail =~ "does not replay"
   end
@@ -59,9 +57,7 @@ defmodule AshR2RML.FrontierEvidenceIdentityTest do
       })
 
     assert {:error, %Refusal{detail: detail}} =
-             FrontierEvidence.from_knowledge_hooks(observations, evaluations, repeated,
-               producer_head: @producer_head
-             )
+             FrontierEvidence.from_knowledge_hooks(observations, evaluations, repeated, producer_head: @producer_head)
 
     assert detail =~ "repeats an observation identity"
   end
