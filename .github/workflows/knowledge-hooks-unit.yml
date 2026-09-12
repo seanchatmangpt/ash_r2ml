@@ -8,6 +8,7 @@ on:
     branches:
       - main
       - feat/knowledge-hooks
+      - feat/frontier-evidence-v1
     paths:
       - "lib/ash_r2rml.ex"
       - "lib/ash_r2rml/semantic_web.ex"
