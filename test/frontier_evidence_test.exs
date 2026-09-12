@@ -11,11 +11,11 @@ defmodule AshR2RML.FrontierEvidenceTest do
 
   @producer_head "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
-  test "native Ash observation/evaluation evidence projects without adding DO authority" do
-    {observations, evaluations} = native_evidence()
+  test "native Ash observation/trigger/evaluation evidence projects without adding DO authority" do
+    {observations, evaluations, triggers} = native_evidence()
 
     assert {:ok, fragment} =
-             FrontierEvidence.from_knowledge_hooks(observations, evaluations,
+             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers,
                producer_head: @producer_head
              )
 
@@ -31,11 +31,14 @@ defmodule AshR2RML.FrontierEvidenceTest do
   end
 
   test "projection and replay identity are deterministic for identical native evidence" do
-    {observations, evaluations} = native_evidence()
+    {observations, evaluations, triggers} = native_evidence()
     opts = [producer_head: @producer_head]
 
-    assert {:ok, first} = FrontierEvidence.from_knowledge_hooks(observations, evaluations, opts)
-    assert {:ok, second} = FrontierEvidence.from_knowledge_hooks(observations, evaluations, opts)
+    assert {:ok, first} =
+             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers, opts)
+
+    assert {:ok, second} =
+             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers, opts)
 
     assert first == second
     assert first.artifact_hash == second.artifact_hash
@@ -43,12 +46,13 @@ defmodule AshR2RML.FrontierEvidenceTest do
   end
 
   test "refuses observation authority widening and non-observation execution" do
-    {[observation], evaluations} = native_evidence()
+    {[observation], evaluations, triggers} = native_evidence()
 
     assert {:error, %Refusal{code: :REFUSED_UNPROVEN_EQUIVALENCE, detail: detail}} =
              FrontierEvidence.from_knowledge_hooks(
                [%{observation | authority: :AUTHORIZED}],
                evaluations,
+               triggers,
                producer_head: @producer_head
              )
 
@@ -58,14 +62,48 @@ defmodule AshR2RML.FrontierEvidenceTest do
              FrontierEvidence.from_knowledge_hooks(
                [%{observation | executed: [:callback]}],
                evaluations,
+               triggers,
                producer_head: @producer_head
              )
 
     assert detail =~ "execution trace"
   end
 
+  test "refuses widened or detached native trigger receipt" do
+    {observations, evaluations, triggers} = native_evidence()
+    [{hook_id, trigger}] = Map.to_list(triggers)
+
+    widened = Map.put(triggers, hook_id, %{trigger | authority: :AUTHORIZED})
+
+    assert {:error, %Refusal{code: :REFUSED_UNPROVEN_EQUIVALENCE, detail: detail}} =
+             FrontierEvidence.from_knowledge_hooks(
+               observations,
+               evaluations,
+               widened,
+               producer_head: @producer_head
+             )
+
+    assert detail =~ "authority/consequence"
+
+    detached =
+      Map.put(triggers, hook_id, %{
+        trigger
+        | observation_receipts: [String.duplicate("f", 64)]
+      })
+
+    assert {:error, %Refusal{code: :REFUSED_UNPROVEN_EQUIVALENCE, detail: detail}} =
+             FrontierEvidence.from_knowledge_hooks(
+               observations,
+               evaluations,
+               detached,
+               producer_head: @producer_head
+             )
+
+    assert detail =~ "unexported Ash observation"
+  end
+
   test "refuses widened constructed intent authority" do
-    {observations, [evaluation]} = native_evidence()
+    {observations, [evaluation], triggers} = native_evidence()
     widened_intent = %{evaluation.intent | authority: :AUTHORIZED}
     widened_evaluation = %{evaluation | intent: widened_intent}
 
@@ -73,6 +111,7 @@ defmodule AshR2RML.FrontierEvidenceTest do
              FrontierEvidence.from_knowledge_hooks(
                observations,
                [widened_evaluation],
+               triggers,
                producer_head: @producer_head
              )
 
@@ -80,7 +119,7 @@ defmodule AshR2RML.FrontierEvidenceTest do
   end
 
   test "refuses evaluation consequence or execution outside SELECT/CONSTRUCT" do
-    {observations, [evaluation]} = native_evidence()
+    {observations, [evaluation], triggers} = native_evidence()
 
     consequence_receipt = %{evaluation.receipt | consequence: :actuated}
 
@@ -88,6 +127,7 @@ defmodule AshR2RML.FrontierEvidenceTest do
              FrontierEvidence.from_knowledge_hooks(
                observations,
                [%{evaluation | receipt: consequence_receipt}],
+               triggers,
                producer_head: @producer_head
              )
 
@@ -99,14 +139,15 @@ defmodule AshR2RML.FrontierEvidenceTest do
              FrontierEvidence.from_knowledge_hooks(
                observations,
                [%{evaluation | receipt: executed_receipt}],
+               triggers,
                producer_head: @producer_head
              )
 
     assert detail =~ "execution trace"
   end
 
-  test "refuses evaluation detached from exported observation receipt" do
-    {observations, [evaluation]} = native_evidence()
+  test "refuses evaluation detached from its exact exported trigger receipt" do
+    {observations, [evaluation], triggers} = native_evidence()
 
     detached_receipt = %{
       evaluation.receipt
@@ -119,22 +160,23 @@ defmodule AshR2RML.FrontierEvidenceTest do
              FrontierEvidence.from_knowledge_hooks(
                observations,
                [detached_evaluation],
+               triggers,
                producer_head: @producer_head
              )
 
-    assert detail =~ "detached" or detail =~ "unexported"
+    assert detail =~ "detached"
   end
 
   test "refuses malformed producer identity, unsupported options, and self-promotion to ALIVE" do
-    {observations, evaluations} = native_evidence()
+    {observations, evaluations, triggers} = native_evidence()
 
     assert {:error, %Refusal{subject: :producer_head}} =
-             FrontierEvidence.from_knowledge_hooks(observations, evaluations,
+             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers,
                producer_head: "moving-ref"
              )
 
     assert {:error, %Refusal{detail: detail}} =
-             FrontierEvidence.from_knowledge_hooks(observations, evaluations,
+             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers,
                producer_head: @producer_head,
                callback: &Function.identity/1
              )
@@ -142,7 +184,7 @@ defmodule AshR2RML.FrontierEvidenceTest do
     assert detail =~ "unsupported options"
 
     assert {:error, %Refusal{subject: :standing, detail: detail}} =
-             FrontierEvidence.from_knowledge_hooks(observations, evaluations,
+             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers,
                producer_head: @producer_head,
                standing: "ALIVE"
              )
@@ -151,10 +193,10 @@ defmodule AshR2RML.FrontierEvidenceTest do
   end
 
   test "replay verifier refuses content, authority, and refusal-envelope tampering" do
-    {observations, evaluations} = native_evidence()
+    {observations, evaluations, triggers} = native_evidence()
 
     assert {:ok, fragment} =
-             FrontierEvidence.from_knowledge_hooks(observations, evaluations,
+             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers,
                producer_head: @producer_head
              )
 
@@ -210,6 +252,8 @@ defmodule AshR2RML.FrontierEvidenceTest do
     assert {:ok, %{observations: observations, evaluations: evaluations}} =
              AshHooks.evaluate(plan, span)
 
-    {observations, evaluations}
+    assert {:ok, triggers} = AshHooks.trigger_receipts(plan, observations)
+
+    {observations, evaluations, triggers}
   end
 end
