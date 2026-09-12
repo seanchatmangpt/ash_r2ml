@@ -21,13 +21,14 @@ defmodule AshR2RML.Introspection.Manifest do
   app, or a one-off script).
 
   Refuses with a typed `AshR2RML.Refusal` (`:REFUSED_MANIFEST_GENERATION`)
-  rather than propagating `Ash.Info.Manifest.generate/1`'s raw `{:error,
-  term()}` shape, consistent with the rest of AshR2RML's refusal vocabulary.
+  rather than propagating `Ash.Info.Manifest.generate/1`'s raw error shape,
+  consistent with the rest of AshR2RML's refusal vocabulary.
   """
 
   alias AshR2RML.Refusal
 
   @type resource_lookup :: Ash.Info.Manifest.resource_lookup()
+  @type manifest_result :: {:ok, Ash.Info.Manifest.t()} | {:error, term()}
 
   @doc """
   Generates a manifest for `otp_app` (or the given `:action_entrypoints`,
@@ -54,7 +55,7 @@ defmodule AshR2RML.Introspection.Manifest do
          )}
 
       {:ok, otp_app} ->
-        case Ash.Info.manifest(opts) do
+        case manifest_result(opts) do
           {:ok, manifest} ->
             {:ok, manifest}
 
@@ -69,6 +70,13 @@ defmodule AshR2RML.Introspection.Manifest do
         end
     end
   end
+
+  # Ash's current success typing is narrower than its public failure contract.
+  # Keep the dependency boundary explicitly typed and dynamically dispatched so
+  # an upstream failure is still converted into an AshR2RML refusal instead of
+  # becoming an impossible branch or an exception leak.
+  @spec manifest_result(keyword()) :: manifest_result()
+  defp manifest_result(opts), do: apply(Ash.Info, :manifest, [opts])
 
   @doc """
   Generates a manifest and returns its `resource_lookup/1` map directly
