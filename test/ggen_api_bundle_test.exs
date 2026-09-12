@@ -11,6 +11,9 @@ defmodule AshR2RML.GgenApiBundleTest do
   SDL/manifest/receipt artifacts from the admitted `SemanticIR`, while the
   generated Ash resource receives no `AshGraphql.Resource` extension and no
   GraphQL DSL block. Custom GraphQL belongs in `ash_graphql`.
+
+  DfCM is exercised across the complete GraphQL × JSON:API toggle lattice and
+  across ontology combinations whose otherwise-lawful root field names collide.
   """
   use ExUnit.Case, async: false
 
@@ -95,9 +98,13 @@ defmodule AshR2RML.GgenApiBundleTest do
     assert manifest["mutation_root"] == false
     assert manifest["customization"] == "unsupported_use_ash_graphql"
     assert manifest["consequence_path"] == "brce"
+    assert manifest["runtime_execution"] == "external"
+    assert manifest["backend_selection"] == "unselected"
     assert receipt["standing"] == "constructed_read_only_schema"
     assert receipt["authority"] == "none"
     assert receipt["mutation_root"] == false
+    assert receipt["blocked"] == []
+    assert receipt["unsupported"] == ["runtime_query_execution"]
   end
 
   test "graphql accepts only a boolean switch and refuses customization" do
@@ -158,5 +165,67 @@ defmodule AshR2RML.GgenApiBundleTest do
     assert AshR2RML.Resource.Info.mapped?(AshR2RML.ApiBundleTest.BothWidget)
     {:ok, mapping} = AshR2RML.mapping_result(AshR2RML.ApiBundleTest.BothWidget)
     assert mapping.class_iris == ["https://api-bundle.example/ontology/Widget"]
+  end
+
+  test "DfCM preserves the complete GraphQL x JSON:API projection lattice" do
+    for graphql <- [false, true], json_api <- [false, true] do
+      suffix = "#{if(graphql, do: "Graphql", else: "NoGraphql")}#{if(json_api, do: "JsonApi", else: "NoJsonApi")}" 
+
+      assert {:ok, bundle} =
+               AshR2RML.compile_api_bundle(profile("AshR2RML.ApiBundleTest.Matrix#{suffix}"),
+                 graphql: graphql,
+                 json_api: json_api
+               )
+
+      source = bundle.files["generated/ash/api_resources.ex"]
+
+      assert (source =~ "AshJsonApi.Resource") == json_api
+      refute source =~ "AshGraphql.Resource"
+      assert Map.has_key?(bundle.files, "generated/graphql/schema.graphql") == graphql
+
+      if graphql do
+        schema = bundle.files["generated/graphql/schema.graphql"]
+        refute schema =~ "Mutation"
+        refute schema =~ "Subscription"
+      end
+    end
+  end
+
+  test "DfCM keeps composed ontology query roots collision-safe and replay-stable" do
+    base_profile = profile("AshR2RML.ApiBundleTest.CollisionWidget")
+    widget = hd(base_profile.resources)
+
+    widget_list = %{
+      widget
+      | iri: "https://api-bundle.example/resource/WidgetList",
+        class_iri: "https://api-bundle.example/ontology/WidgetList",
+        shape_iri: "https://api-bundle.example/shapes/WidgetListShape",
+        module: "AshR2RML.ApiBundleTest.CollisionWidgetList",
+        table: "widget_lists",
+        subject_template: "https://api-bundle.example/id/widget-list/{id}"
+    }
+
+    profile_a = %{base_profile | resources: [widget, widget_list]}
+    profile_b = %{base_profile | resources: [widget_list, widget]}
+
+    assert {:ok, bundle_a} = AshR2RML.compile_api_bundle(profile_a, graphql: true)
+    assert {:ok, bundle_b} = AshR2RML.compile_api_bundle(profile_b, graphql: true)
+
+    assert bundle_a.files["generated/graphql/schema.graphql"] ==
+             bundle_b.files["generated/graphql/schema.graphql"]
+
+    assert bundle_a.files["receipts/graphql-projection.json"] ==
+             bundle_b.files["receipts/graphql-projection.json"]
+
+    manifest = Jason.decode!(bundle_a.files["generated/graphql/semantic-manifest.json"])
+
+    root_names =
+      manifest["resources"]
+      |> Enum.flat_map(&[&1["query"], &1["list_query"]])
+
+    assert length(root_names) == 4
+    assert length(Enum.uniq(root_names)) == 4
+    assert "widget" in root_names
+    assert "widget_list" in root_names
   end
 end
