@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+# SPDX-FileCopyrightText: 2026 ash_r2rml contributors <https://github.com/seanchatmangpt/ash_r2rml/graphs/contributors>
 #
 # SPDX-License-Identifier: MIT
 
@@ -10,51 +10,13 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# Three gates:
-# - `types` is database-free: compile warnings-as-errors + Dialyzer.
-# - `test` preserves the full inherited Neo4j control suite.
-# - `obda` executes the bounded ontology-first crown against real PostgreSQL,
-#   official Ontop, and the Neo4j control graph. Technical parity still does
-#   not grant cutover authority.
-#
-# BEAM artifacts are not portable across arbitrary OTP/Elixir worlds. Cache
-# identity therefore binds both .tool-versions and mix.lock exactly. Do not use
-# a broad restore prefix for deps/_build: stale rebar plugin BEAMs can load as
-# corrupt modules and manufacture false source failures.
 jobs:
   types:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Elixir / Erlang (from .tool-versions)
+      - name: Set up Elixir / Erlang
         uses: jdx/mise-action@v2
-
-      - name: Cache exact-toolchain deps and build (incl. Dialyzer PLT)
-        uses: actions/cache@v4
-        with:
-          path: |
-            deps
-            _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
-
-      - name: Install dependencies
-        run: mix deps.get
-
-      - name: Compile with warnings as errors
-        run: mix compile --force --warnings-as-errors
-
-      - name: Dialyzer
-        run: mix dialyzer
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Elixir / Erlang (from .tool-versions)
-        uses: jdx/mise-action@v2
-
       - name: Cache exact-toolchain deps and build
         uses: actions/cache@v4
         with:
@@ -62,19 +24,28 @@ jobs:
             deps
             _build
           key: ${{ runner.os }}-mix-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
+      - run: mix deps.get
+      - name: Compile with warnings as errors
+        run: mix compile --force --warnings-as-errors
+      - name: Dialyzer
+        run: mix dialyzer
 
-      - name: Install dependencies
-        run: mix deps.get
-
-      - name: Start Neo4j test databases (bolt5 → 7687, bolt6 → 7689, apoc → 7691)
-        run: docker compose up -d --wait --wait-timeout 300
-
-      - name: Test (default + cypher25 + bolt6 + apoc + slow)
-        run: mix test --include cypher25 --include bolt6 --include apoc --include slow
-
-      - name: Stop Neo4j test databases
-        if: always()
-        run: docker compose down
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Elixir / Erlang
+        uses: jdx/mise-action@v2
+      - name: Cache exact-toolchain deps and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
+      - run: mix deps.get
+      - name: Test supported runtime surface
+        run: mix test --include slow
 
   obda:
     runs-on: ubuntu-latest
@@ -92,13 +63,10 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 30
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Elixir / Erlang (from .tool-versions)
+      - name: Set up Elixir / Erlang
         uses: jdx/mise-action@v2
-
       - name: Cache exact-toolchain deps and build
         uses: actions/cache@v4
         with:
@@ -106,22 +74,13 @@ jobs:
             deps
             _build
           key: ${{ runner.os }}-mix-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
-
-      - name: Install dependencies
-        run: mix deps.get
-
+      - run: mix deps.get
       - name: Compile candidate compiler
         run: mix compile --force --warnings-as-errors
-
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-
-      - name: Start Neo4j control database
-        run: docker compose up -d --wait --wait-timeout 300 neo4j-bolt5
-
       - name: Pull pinned official Ontop image
         run: docker pull ontop/ontop:5.5.0
-
       - name: Supply pinned PostgreSQL JDBC driver to Ontop
         env:
           PGJDBC_VERSION: "42.7.13"
@@ -135,22 +94,16 @@ jobs:
             "https://repo1.maven.org/maven2/org/postgresql/postgresql/${PGJDBC_VERSION}/postgresql-${PGJDBC_VERSION}.jar" \
             --output "${jdbc_jar}"
           echo "${PGJDBC_SHA256}  ${jdbc_jar}" | sha256sum --check --strict
-
-      - name: Execute RDF/SHACL → Postgres/R2RML → Ontop + Neo4j parity crown
+      - name: Execute RDF/SHACL to PostgreSQL/R2RML and SPARQL/Ontop crown
         env:
           MIX_ENV: test
           ASH_R2RML_ONTOP_JDBC_DIR: ${{ runner.temp }}/ontop-jdbc
           ASH_R2RML_PGJDBC_SHA256: "6e0e4cc2d8cae902084f8a2b18728b073a6fd9d1f87c9d8bff8f298c18185b93"
         run: mix run test/integration/obda_crown.exs
-
-      - name: Publish bounded parity receipt
+      - name: Publish bounded semantic parity receipt
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ash-r2ml-obda-parity
           path: tmp/ash_r2rml_obda/parity-receipt.json
           if-no-files-found: ignore
-
-      - name: Stop Neo4j control database
-        if: always()
-        run: docker compose down
