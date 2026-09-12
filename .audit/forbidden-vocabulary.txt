@@ -1,0 +1,241 @@
+# Temporary forbidden vocabulary inventory
+
+## Content matches
+.dialyzer_ignore.exs:1:# SPDX-FileCopyrightText: 2026 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+.github/workflows/ci.yaml:1:# SPDX-FileCopyrightText: 2026 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+.github/workflows/ci.yaml:15:# - `test` preserves the full inherited Neo4j control suite.
+.github/workflows/ci.yaml:17:#   official Ontop, and the Neo4j control graph. Technical parity still does
+.github/workflows/ci.yaml:69:      - name: Start Neo4j test databases (bolt5 → 7687, bolt6 → 7689, apoc → 7691)
+.github/workflows/ci.yaml:72:      - name: Test (default + cypher25 + bolt6 + apoc + slow)
+.github/workflows/ci.yaml:73:        run: mix test --include cypher25 --include bolt6 --include apoc --include slow
+.github/workflows/ci.yaml:75:      - name: Stop Neo4j test databases
+.github/workflows/ci.yaml:119:      - name: Start Neo4j control database
+.github/workflows/ci.yaml:120:        run: docker compose up -d --wait --wait-timeout 300 neo4j-bolt5
+.github/workflows/ci.yaml:139:      - name: Execute RDF/SHACL → Postgres/R2RML → Ontop + Neo4j parity crown
+.github/workflows/ci.yaml:154:      - name: Stop Neo4j control database
+.github/workflows/reuse.yaml:1:# SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+.gitignore.license:1:SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+.tool-versions.license:1:SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+CHANGELOG.md:2:SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+CHANGELOG.md:82:## [v0.10.0](https://github.com/diffo-dev/ash_neo4j/compare/v0.9.0...v0.10.0) (2026-06-21)
+CHANGELOG.md:84:This release opened on functionality and pivoted to industrialisation and integrity: the write path is now atomic and constraint-backed, the read path gains a graph-native traversal expression, and the whole data layer returns typed errors rather than raising. The headline is **graph traversal as a first-class Ash expression** — a multi-hop path that pushes down to Cypher and composes with the rest of your filter, which a relational data layer structurally cannot offer.
+CHANGELOG.md:88:* **`AshNeo4j.Types.*` → `AshNeo4j.Type.*`** (#323) — the type namespace is renamed to singular, matching `Ash.Type`. Update `AshNeo4j.Types.Vector` → `AshNeo4j.Type.Vector` (and any other `AshNeo4j.Types.*` reference) in your attribute declarations. No storage or behaviour change.
+CHANGELOG.md:92:* **Graph traversal as an Ash expression** (#321) — `traverse(^hop_chain, projection)` expresses a multi-hop, direction-and-type-selected path *inside* an `Ash.Expr`, and the data layer pushes it down to a Cypher path pattern instead of an imperative load-time Elixir walk. `hop_chain` is a list of `{:forward | :reverse, edge_selector}` hops; `edge_selector` is an Ash relationship name or an explicit `{:edge, label}` / `{:edge, label, dest}`. The reached node composes as a value in a `filter`:
+CHANGELOG.md:101:* **Read-time polymorphic projection — `AshNeo4j.Calculations.ProjectedTraversal` + `AshNeo4j.Unknown`** (#329) — a calculation that follows a hop chain and returns the reached node, late-binding its concrete type at read time. Introduces `AshNeo4j.Unknown`, a first-class value complementary to `Ash.NotLoaded`: `NotLoaded` means "not fetched yet"; `Unknown` means "reached, but couldn't be determined in the current view of the graph". Never collapse it into `nil`.
+CHANGELOG.md:103:* **Atomic & bulk writes** (#361) — atomic updates render `changeset.atomics` straight to a Cypher `SET` (numeric, string `concat`/`trim`, and enum/atom forms); bulk update and destroy run as a single `update_query/4` / `destroy_query/4` via `Ash.bulk_update` / `Ash.bulk_destroy` with `strategy: :atomic`; a single filtered (optimistic-lock) update or destroy whose guard no longer holds returns `Ash.Error.Changes.StaleRecord` rather than a silent no-op.
+CHANGELOG.md:105:* **Atomic upsert** (#379) — create-or-update keyed on an identity renders an atomic Cypher `MERGE`, so concurrent upserts converge on one node instead of racing to duplicates.
+CHANGELOG.md:107:* **Identities & primary keys as Neo4j uniqueness constraints** (#20, #32) — `AshNeo4j.Constraint.create_constraints/1` builds `CREATE CONSTRAINT … IS UNIQUE` for every enforceable identity and for the primary key (single and composite, Community Edition). A conflict surfaces as Ash's own `Ash.Error.Changes.InvalidAttribute` ("has already been taken"), so `pre_check?` and its race window are no longer needed. Identities Neo4j can't enforce (`nils_distinct?: false`, filtered `where:`) are refused rather than silently unenforced. Like indexes, AshNeo4j runs no migrations on boot — you invoke the helper. See `usage-rules/identities.md`.
+CHANGELOG.md:109:* **Typed tensor attribute — `AshNeo4j.Type.NxTensor`** (#309) — a shape-and-element-typed tensor backed by `Nx.Tensor`, rank 1 to 3 (vector / matrix / 3-tensor), stored row-major as a native property `LIST` (`:property`, default) or a base64 binary blob (`:packed`); neither type nor shape is stored — both are declared constraints recovered on read. Foundation slice of the hybrid tensor/compute epic (#308); structural ops are `Nx`'s own (the value is an `Nx.Tensor`).
+CHANGELOG.md:111:* **Dynamic node labels** (#339) — a capability + pattern-position render primitive letting a label be supplied at query time (Cypher 5 ≥ 5.26), groundwork for polymorphic-label reads.
+CHANGELOG.md:113:* **Cypher fragment filter escape hatch** (#33) — `cypher_fragment(...)` drops a raw, parameterised Cypher predicate into a `filter` for the rare case the expression surface can't reach, without abandoning the data layer. A caveated last resort, not a default. See `usage-rules/cypher-fragments.md`.
+CHANGELOG.md:115:* **Query results as Mermaid flowcharts** (#60) — `AshNeo4j.Mermaid` renders a graph-level query result as a Mermaid diagram for docs and Livebooks.
+CHANGELOG.md:123:* **The data layer returns typed errors, never raises** (#342, #350, #358, #372) — every read/write-path failure is a returned `{:error, Splode}` with a class, not a raised string. New errors: `UnresolvableTraversal` (a traverse filter that can't be formed — never a fabricated edge), `GeoDimensionMismatch`, `Unsupported3DGeometry`, `RequiresCypher25`. Neo4j server errors are surfaced and classified rather than flattened. Bare-string errors throughout the data layer are now typed (#372).
+CHANGELOG.md:133:* **CYPHER 5 sunset tripwire** (#363) and **`bolty` 0.2.0** (#362); toolchain bumped to Elixir 1.20 / OTP 29 and Neo4j 5 to 5.26.27 (#318, #320).
+CHANGELOG.md:135:## [v0.9.0](https://github.com/diffo-dev/ash_neo4j/compare/v0.8.1...v0.9.0) (2026-06-09)
+CHANGELOG.md:139:* **Minimum Neo4j / Bolt raised** (#292, #293) — bumps to [`bolty`](https://hex.pm/packages/bolty) 0.1.0, which speaks Bolt 5.6–6.0, so Neo4j 4.x (Bolt 4.x) is no longer supported. Flagged as breaking for completeness, but it should break no one in practice: Neo4j 4.x is end-of-life and not considered secure, so no realistic ash_neo4j deployment targets it.
+CHANGELOG.md:143:* **Vector embeddings & similarity search** (#74) — a new `AshNeo4j.Types.Vector` attribute type, stored as a Neo4j `LIST<FLOAT>`, with `vector_similarity` (cosine) and `vector_cosine_distance` Ash query functions, k-NN ordering pushed down to Cypher, and `AshNeo4j.Vector` index-lifecycle helpers. Vector predicates and ordering route to a Cypher-25-capable pool. Because the values persist as `LIST<FLOAT>` (the native `VECTOR` type can't be a node property), the feature is gated on Cypher 25.
+CHANGELOG.md:145:* **WGS-84-3D points** (#270, Phase 1) — `%Geo.PointZ{}` (srid 4979) stores as a native 3D Neo4j `POINT` at `<attr>.point`, with `point.distance` pushdown in 3D and an in-memory haversine (mean-height-scaled arc + Δh) that matches Neo4j to ~0.1 m. A strict dimension policy stops 2D and 3D mixing silently — a mismatch raises `AshNeo4j.Error.GeoDimensionMismatch`, and `AshNeo4j.Geo.force_2d/1` does an explicit downward projection. 3D areal/linear geometry (`PolygonZ`, …) raises `AshNeo4j.Error.Unsupported3DGeometry`, deferred to Phase 2.
+CHANGELOG.md:147:* **CYPHER 25 language selector** (#292, #293) — on Neo4j ≥ 2025.06, AshNeo4j auto-prepends `CYPHER 25` to generated queries, opting into the versioned Cypher 25 language; older servers stay on Cypher 5. The selector is derived from the server version and cached per pool, and is distinct from the Bolt protocol version.
+CHANGELOG.md:155:* **CYPHER 25 selector emitted once** (#299) — inside a `CALL {…}` combination block the selector was prepended per branch and again on the outer query; it is now emitted only once, on the outer query.
+CHANGELOG.md:163:## [v0.8.1](https://github.com/diffo-dev/ash_neo4j/compare/v0.8.0...v0.8.1) (2026-05-31)
+CHANGELOG.md:176:## [v0.8.0](https://github.com/diffo-dev/ash_neo4j/compare/v0.7.0...v0.8.0) (2026-05-28)
+CHANGELOG.md:180:* **Spatial storage rearchitecture** (#274) — the spatial surface introduced in 0.7.0 is replaced. The `AshNeo4j.Type.Point` and `AshNeo4j.Type.Box` modules are **removed**; spatial attributes now use [`ash_geo`](https://hex.pm/packages/ash_geo) types and carry [`%Geo.*{}`](https://hex.pm/packages/geo) structs. `Bolty.Types.Point` no longer appears at the Ash boundary (it was a driver-layer type leaking through). Migration:
+CHANGELOG.md:181:  - `attribute :loc, AshNeo4j.Type.Point` → `attribute :loc, AshGeo.GeoJson, constraints: [geo_types: [:point], force_srid: 4326]`
+CHANGELOG.md:182:  - `attribute :b, AshNeo4j.Type.Box` → `attribute :b, AshGeo.GeoJson, constraints: [geo_types: [:polygon], force_srid: 4326]` (Box was always proto-Polygon; axis-aligned validation is now an application-layer concern)
+CHANGELOG.md:183:  - values: `Bolty.Types.Point.create(:wgs_84, lng, lat)` → `%Geo.Point{coordinates: {lng, lat}, srid: 4326}`; `%AshNeo4j.Type.Box{sw, ne}` → `%Geo.Polygon{coordinates: [ring], srid: 4326}`
+CHANGELOG.md:184:  - **on-disk shape changed**: Point's native Point moves from `<attr>` to `<attr>.point` and gains a `<attr>.json` canonical; Box's 4-Point array becomes `<attr>.json` + `<attr>.bbSW`/`<attr>.bbNE`. Existing 0.7.0 spatial nodes need re-creation or a one-shot migration cypher (AshNeo4j ships no migrations by design).
+CHANGELOG.md:196:* **`AshNeo4j.Spatial` index helpers** (#275) — `create_index/3` / `drop_index/2` build and run the POINT index Cypher backing spatial pushdown from a resource module + attribute name, resolving the Neo4j label, the attribute→property translation, and the companion suffix convention (`.point` for a Point; both `.bbSW`/`.bbNE` for any other geometry, in one call). Nested geometries take a `[attribute, field…]` path (`create_index(Place, [:pet, :home])`) and resolve the dotted property by walking the `Ash.TypedStruct` fields. `create_index/3` is idempotent (`CREATE … IF NOT EXISTS`), takes `recreate: true` (DROP + CREATE) for storage-shape changes, and `name:` to override the derived index name. `index_statements/3` returns the exact Cypher without touching the database, for review or a dry run. Consistent with the "no migrations, index lifecycle is the operator's concern" stance (#45) — an ergonomic tool you call, not automatic behaviour.
+CHANGELOG.md:198:* **`AshNeo4j.worlds/1` — N-world projection** (#273, **exploratory**) — a Neo4j node carries labels for *every* `(Domain, Resource)` world it participates in, but an Ash read returns only the queried world's struct. `worlds/1` projects a read record's labels (already on `__metadata__.labels`) back to the loadable resource modules — `[{domain, resource}, …]` ordered **outermost-first** — so a consumer can recover the outer type(s) of a polymorphic node for cross-domain late binding ([diffo#172](https://github.com/diffo-dev/diffo/issues/172)) without dropping to Cypher. An outer world contains the inner worlds and adds detail, so it carries more labels (more labels = more nuanced = more outer). Resolution is dynamic against loaded modules (no registry): a candidate is a loaded `AshNeo4j.DataLayer` resource whose own labels are a subset of the node's, the outermost (most-nuanced) is kept per domain, and the loaded-resource index is cached in `:persistent_term`. Labels that don't resolve to a loaded module are left unknown — omitted, never coerced. Returns `[]` for a non-AshNeo4j record. Pre-1.0 and may change — shipped to learn its shape from real downstream use.
+CHANGELOG.md:202:* **In-memory distance matches Neo4j's `point.distance`** (#274) — `st_distance` / `st_dwithin` push down to Neo4j's native `point.distance` inside comparison filters but evaluate in Elixir elsewhere (`order_by`, `calculate`, LineString/MultiPoint). Both now use the same model — a spherical haversine on the WGS-84 **equatorial** radius (6 378 137 m), the radius Neo4j uses, not the mean Earth radius (6 371 000 m) — so the two paths agree to within ~1 m over 700 km rather than diverging by ~0.11 % (≈800 m). Single source of truth `AshNeo4j.Geo.haversine_meters/2`, shared by `st_distance` and `st_closest_point`; a sandbox test asserts the paths stay in step.
+CHANGELOG.md:206:* **Exact, hole-aware polygon predicates** (#267) — `st_contains` and `st_intersects` refine via [`topo`](https://hex.pm/packages/topo) on the actual `%Geo.*{}` rings, replacing the bbox approximation. A point in the bounding box but outside the ring is correctly excluded; a point in an interior ring (hole) is not contained; a LineString that crosses a Polygon **without** a vertex inside it correctly intersects. Inside `Ash.Query.filter`, `st_contains` keeps the indexed `point.withinBBox` bbox **prefilter** in Cypher and runs the exact `topo` test in-memory over the candidates (a true match always lies within the bbox, so the prefilter never drops one). Adds `topo ~> 1.0` runtime dep.
+CHANGELOG.md:208:* **Exact geometry-to-Point distance** (#279) — `st_distance` (and `st_dwithin`, which delegates to it) now measures **any geometry to a Point** exactly: LineString/MultiLineString use the true closest-point-on-**segment** instead of closest-vertex (the old approximation could overstate a mid-edge proximity by tens of kilometres — e.g. 78.7 km reported where the perpendicular distance is 55.7 km), and Polygon/MultiPolygon return `0` when the point is inside (hole-aware via `topo`) or the nearest-boundary distance otherwise. `st_closest_point` likewise returns the closest point on the nearest segment of a LineString (an interior edge point, not just a vertex). New `AshNeo4j.Geo.point_segment_meters/3` / `closest_point_on_segment/3` / `min_segment_meters/2` primitives (local equirectangular projection to find the closest point, haversine for the distance). Distance between two non-Point geometries is still deferred. Also confirms MultiLineString — the sixth RFC 7946 geometry — round-trips through storage and works across the predicates, and extends `st_contains` to accept LineString / MultiLineString containees.
+CHANGELOG.md:210:* **`AshNeo4j.GeoJson`** (#274) — RFC 7946 encoder/decoder wrapping `geo`; strips the obsolete `crs` member (which `geo` emits when `srid` is set — see [felt/geo#250](https://github.com/felt/geo/issues/250)), injects the `bbox` member, key-sorts via `AshNeo4j.Util.json_encode`. `Util.to_json_safe`/`json_decode` gained symmetric Geo handling so geometries survive nesting inside JSON-stored types. Local workarounds for [ash_geo#13](https://github.com/bcksl/ash_geo/pull/13) (bare-atom `geo_types` formatter crash) and [ash_geo#14](https://github.com/bcksl/ash_geo/pull/14) (`cast_stored` map handling) are in place pending those upstream fixes.
+CHANGELOG.md:212:## [v0.7.0](https://github.com/diffo-dev/ash_neo4j/compare/v0.6.0...v0.7.0) (2026-05-25)
+CHANGELOG.md:216:* **Spatial types and `st_*` expressions** (#45) — first-class WGS-84 2D spatial support. New attribute types `AshNeo4j.Type.Point` (native Neo4j Point) and `AshNeo4j.Type.Box` (axis-aligned bounding box, 4-vertex straight-sided polygon on disk). Six `Ash.Query.Function` modules matching ash_geo / PostGIS signatures: `st_contains` (box-point, box-box), `st_within`, `st_intersects`, `st_distance` (point-point, with comparison pushdown), `st_distance_in_meters` (alias), `st_dwithin` (point-point). Predicates push down to native Cypher (`point.distance`, `point.withinBBox`) wherever possible; in-memory `evaluate/1` is the correctness fallback. Box's on-disk storage uses a 4-Point vertex array plus 4 scalar bbox-corner companion properties (`<prop>.bbSW/.bbSE/.bbNE/.bbNW`) written by a generic `companions/1` callback on the Type module — the same shape future Polygon support ([#267](https://github.com/diffo-dev/ash_neo4j/issues/267)) will use, so no data migration when Polygon lands. The bbox companions are scalar Point properties specifically to be indexable via Neo4j's POINT index — storage is **indexable, not yet indexed** (operators run `CREATE POINT INDEX` themselves; lifecycle management is future work). Documentation in `usage-rules/spatial.md`. Requires `bolty >= 0.0.13` for native Point property serialisation ([bolty#32](https://github.com/diffo-dev/bolty/issues/32)).
+CHANGELOG.md:218:* **Combination queries** (#10) — support for all five `Ash.Query.Combination` types (`:base`, `:union`, `:union_all`, `:intersect`, `:except`). Combinations of only `:union` or only `:union_all` push down to a single Cypher `CALL { … UNION/UNION ALL … } WITH s OPTIONAL MATCH (s)-[r]-(d) RETURN s, r, d` block, with per-branch parameter prefixing to avoid name collisions. Combinations involving `:intersect`, `:except`, or mixed union types take an in-memory orchestration path — each branch runs returning just node ids (`id(s) AS sid`), the set operation is computed in Elixir over `MapSet`s, then a final `MATCH WHERE id(s) IN $ids` fetches the keep-set with the standard OPTIONAL MATCH enrichment. Cypher has no native `INTERSECT`/`EXCEPT`; the in-memory implementation is the honest answer. Documentation in `usage-rules/combination-queries.md`. New `AshNeo4j.Cypher.Query` builders: `branch_node_read/3`, `branch_node_read_ids/3`, `combination_block/2`, `node_read_by_ids/2`; new `param_prefix:` opt on `node_read_filtered/3` and `build_conditions/3`. New `AshNeo4j.Cypher.Call` clause type.
+CHANGELOG.md:220:## [v0.6.0](https://github.com/diffo-dev/ash_neo4j/compare/v0.5.1...v0.6.0) (2026-05-19)
+CHANGELOG.md:224:* **Introspection API renamed** (#105) — `AshNeo4j.DataLayer.Info` and `AshNeo4j.DataLayer.Domain.Info` are now generated by `Spark.InfoGenerator`. AshNeo4j now declares a direct `spark >= 2.7.0` dependency to guarantee availability. All functions follow the InfoGenerator convention: `neo4j_label/1` returns `{:ok, value} | :error`; `neo4j_label!/1` returns the value or raises; list options (`relate`, `guard`, `skip`) always return the list via the `!` variant. Previous hand-rolled helpers (`label/1`, `relate/1`, `guard/1`, `skip/1`) are removed.
+CHANGELOG.md:228:* **Domain fragment label** (#261) — domains can declare a cross-domain graph label via `AshNeo4j.DataLayer.Domain` (`use Ash.Domain, extensions: [AshNeo4j.DataLayer.Domain]` with `neo4j do label :MyLabel end`). The fragment label is written as an additional Neo4j node label on CREATE, enabling polymorphic graph traversals across domains. Exposed via `ResourceInfo.domain_fragment_label/1` and included in `ResourceInfo.all_labels/1` and `ResourceInfo.mapping/1`.
+CHANGELOG.md:238:* **Scalar filter pushdown for aggregates** (#253) — filtered aggregates whose filter consists entirely of scalar `==` equality predicates on non-embedded destination attributes now push a `WHERE d.prop = $val` clause directly into Cypher, avoiding full destination record loading in Elixir. Complex filters (OR, embedded fields, non-equality operators) continue to use the Elixir-side path introduced in #252.
+CHANGELOG.md:240:## [v0.5.1](https://github.com/diffo-dev/ash_neo4j/compare/v0.5.0...v0.5.1) (2026-05-10)
+CHANGELOG.md:244:* **Documentation** (#249) — ex_doc configuration overhauled: extras reorganised with titled entries, module groups defined for AshNeo4j, Introspection, Cypher, Utilities and Internals, Livebook added to How To, CHANGELOG included in About AshNeo4j, maintainer contact updated.
+CHANGELOG.md:248:* **Aggregate filters honoured** (#252) — filters declared via `filter expr(...)` on aggregate definitions were silently dropped. Filtered aggregates now load full destination records in Elixir and apply `Ash.Filter.Runtime.filter_matches/3` per source group before reducing. The fast Cypher push-down path is preserved for unfiltered aggregates.
+CHANGELOG.md:250:* **Aggregate names with `?` suffix** (#251) — aggregate names following the Elixir predicate convention (e.g. `exists :cvc_defined?, :characteristics`) caused Neo4j to reject the generated Cypher with an invalid identifier error. Column aliases are now backtick-quoted, allowing any valid Elixir atom as an aggregate name.
+CHANGELOG.md:252:## [v0.5.0](https://github.com/diffo-dev/ash_neo4j/compare/v0.4.1...v0.5.0) (2026-05-08)
+CHANGELOG.md:256:* **Aggregates** — full support for `:count`, `:exists`, `:sum`, `:avg`, `:min`, `:max`, `:first`, `:list` aggregate kinds, declared in the standard Ash `aggregates` block. Aggregates are executed as Cypher `OPTIONAL MATCH` traversals; single-hop and multi-hop relationship paths are both supported.
+CHANGELOG.md:257:* **Aggregates on embedded/JSON-type fields** — when `field:` points to an attribute stored as JSON (`Ash.TypedStruct`, `Ash.Type.NewType`, embedded resources, `Ash.Type.Map`, etc.) AshNeo4j collects raw JSON from Neo4j and deserializes in Elixir. `:list` and `:first` return fully-typed structs; `:sum`/`:avg`/`:min`/`:max` work on directly comparable values.
+CHANGELOG.md:263:* Cypher query struct family extended; `Neo4jHelper` refactored to use it
+CHANGELOG.md:264:* Calculation-based filter predicates are excluded from Cypher WHERE and evaluated in-memory via `Ash.Filter.Runtime`
+CHANGELOG.md:267:## [v0.4.1](https://github.com/diffo-dev/ash_neo4j/compare/v0.4.0...v0.4.1) (2026-05-06)
+CHANGELOG.md:270:* fix in_transaction? by @matt-beanland in https://github.com/diffo-dev/ash_neo4j/pull/226
+CHANGELOG.md:271:* fixed sandbox and non-sandbox paths by @matt-beanland in https://github.com/diffo-dev/ash_neo4j/pull/227
+CHANGELOG.md:272:* fix unhandled throws by @matt-beanland in https://github.com/diffo-dev/ash_neo4j/pull/228
+CHANGELOG.md:274:## [v0.4.0](https://github.com/diffo-dev/ash_neo4j/compare/v0.3.1...v0.4.0) (2026-05-01)
+CHANGELOG.md:277:* real Neo4j transactions via `Bolty.transaction` — `can?(_, :transact)` now advertised, rollback genuinely aborts the database transaction
+CHANGELOG.md:278:* `AshNeo4j.Sandbox` — test isolation adapter analogous to `Ecto.Adapters.SQL.Sandbox`, enabling safe parallel test execution with `async: true`
+CHANGELOG.md:284:## [v0.3.1](https://github.com/diffo-dev/ash_neo4j/compare/v0.3.0...v0.3.1) (2026-04-23)
+CHANGELOG.md:289:* use native neo4j 5.x datetime by @matt-beanland
+CHANGELOG.md:291:## [v0.3.0](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.15...v0.3.0) (2026-04-18)
+CHANGELOG.md:294:String.Chars is no longer required and JSON blobs/Base64 are employed. Native Neo4j types are used except for datetime, instead we use ISO8601 strings to work around Neo4j 5.x incompatibility. There is no data migration supported.
+CHANGELOG.md:297:* 196 remove need for structs to implement stringchars by @matt-beanland in https://github.com/diffo-dev/ash_neo4j/pull/197
+CHANGELOG.md:298:* reduced advertised capability, fixed calculations by @matt-beanland in https://github.com/diffo-dev/ash_neo4j/pull/198
+CHANGELOG.md:299:* refactored transformers as persisters, split DataLayer and Resource Info by @matt-beanland in https://github.com/diffo-dev/ash_neo4j/pull/201
+CHANGELOG.md:300:* updated deps and reinstated keyword tests by @matt-beanland in https://github.com/diffo-dev/ash_neo4j/pull/204
+CHANGELOG.md:301:* fixed persister and improved verifier to verify all labels by @matt-beanland in https://github.com/diffo-dev/ash_neo4j/pull/205
+CHANGELOG.md:302:* added encoding test and fixed json_encode for map by @matt-beanland in https://github.com/diffo-dev/ash_neo4j/pull/207
+CHANGELOG.md:303:* added defensive casting, returning error tuple by @matt-beanland in https://github.com/diffo-dev/ash_neo4j/pull/209
+CHANGELOG.md:304:* expression calculations in memory by @matt-beanland in https://github.com/diffo-dev/ash_neo4j/pull/210
+CHANGELOG.md:306:## [v0.2.15](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.14...v0.2.15) (2026-03-19)
+CHANGELOG.md:312:## [v0.2.14](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.13...v0.2.14) (2026-03-19)
+CHANGELOG.md:316:* fix relationship enrichment inconsistent across neo4j versions
+CHANGELOG.md:318:## [v0.2.13](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.12...v0.2.13) (2026-03-12)
+CHANGELOG.md:335:## [v0.2.12](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.11...v0.2.12) (2025-11-18)
+CHANGELOG.md:345:## [v0.2.11](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.10...v0.2.11) (2025-10-13)
+CHANGELOG.md:355:## [v0.2.10](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.9...v0.2.10) (2025-09-09)
+CHANGELOG.md:361:## [v0.2.9](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.8...v0.2.9) (2025-08-16)
+CHANGELOG.md:367:## [v0.2.8](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.7...v0.2.8) (2025-08-14)
+CHANGELOG.md:378:* fixed has_many enrichment incorrect cypher
+CHANGELOG.md:381:## [v0.2.7](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.6...v0.2.7) (2025-08-03)
+CHANGELOG.md:385:* relates node cypher avoids cartesian product warning
+CHANGELOG.md:396:## [v0.2.6](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.5...v0.2.6) (2025-07-25)
+CHANGELOG.md:401:* fixed cypher error when filtering on atom type
+CHANGELOG.md:405:## [v0.2.5](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.4...v0.2.5) (2025-07-21)
+CHANGELOG.md:417:## [v0.2.4](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.3...v0.2.4) (2025-07-16)
+CHANGELOG.md:428:* fixed Ash.Error.Unknown no function matching clause in AshNeo4j.Cypher.expression/4
+CHANGELOG.md:430:## [v0.2.3](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.2...v0.2.3) (2025-07-10)
+CHANGELOG.md:440:## [v0.2.2](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.1...v0.2.2) (2025-06-26)
+CHANGELOG.md:448:## [v0.2.1](https://github.com/diffo-dev/ash_neo4j/compare/v0.2.0...v0.2.1) (2025-06-17)
+CHANGELOG.md:455:## [v0.2.0](https://github.com/diffo-dev/ash_neo4j/compare/v0.1.6...v0.2.0) (2025-06-05)
+CHANGELOG.md:463:## [v0.1.6](https://github.com/diffo-dev/ash_neo4j/compare/v0.1.5...v0.1.6) (2025-06-02)
+CHANGELOG.md:471:## [v0.1.5](https://github.com/diffo-dev/ash_neo4j/compare/v0.1.4...v0.1.5) (2025-05-31)
+CHANGELOG.md:478:## [v0.1.4](https://github.com/diffo-dev/ash_neo4j/compare/v0.1.3...v0.1.4) (2025-05-28)
+CHANGELOG.md:483:## [v0.1.3](https://github.com/diffo-dev/ash_neo4j/compare/v0.1.2...v0.1.3) (2025-05-24)
+CHANGELOG.md:488:## [v0.1.2](https://github.com/diffo-dev/ash_neo4j/compare/v0.1.1...v0.1.2) (2025-05-23)
+CHANGELOG.md:493:## [v0.1.1](https://github.com/diffo-dev/ash_neo4j/compare/v0.1.0...v0.1.1) (2025-05-05)
+CHANGELOG.md:501:## [v0.1.0](https://github.com/diffo-dev/ash_neo4j/compare/v0.1.0...v0.1.0) (2025-04-30)
+LICENSES/MIT.md:3:Copyright (c) 2025 Matthew Graham Beanland and [contributors](https://github.com/diffo-dev/ash_neo4j/graphs/contributors) 
+README.md:2:SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+README.md:473:- require Neo4j or another graph database;
+bench/README.md:9:AshR2RML benchmarks measure semantic compilation and virtual-RDF integration costs. They do not benchmark Neo4j, Cypher, graph indexes, vector search, spatial pushdown, or any other database/engine not directly part of AshR2RML's own supported stack (Ash, `Ash.DataLayer.Ets`, `AshPostgres`, Ontop).
+bench/RESULTS.md:85:No graph database (Neo4j or otherwise) is exercised anywhere in this repository's benchmark
+bench/RESULTS.md:86:suite. `AshR2RML.Parity`'s `:neo4j_postgres` naming is a parity-witness *kind* for an
+config/config.exs:1:# SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+config/dev.exs:1:# SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+config/dev.exs:15:  uri: "bolt://localhost:7687",
+config/dev.exs:16:  auth: [username: "neo4j", password: "password"],
+config/dev.exs:30:  repository_url: "https://github.com/diffo-dev/ash_neo4j",
+config/test.exs:1:# SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+config/test.exs:15:if System.get_env("NEO4J_ENABLED") == "true" do
+config/test.exs:17:    uri: "bolt://localhost:7687",
+config/test.exs:18:    auth: [username: "neo4j", password: "password"],
+config/test.exs:30:    uri: "bolt://localhost:7689",
+config/test.exs:31:    auth: [username: "neo4j", password: "password"],
+config/test.exs:42:  # Neo4j 5.x Community + APOC — the `:apoc` round-trip fragment test (#386).
+config/test.exs:44:    uri: "bolt://localhost:7691",
+config/test.exs:45:    auth: [username: "neo4j", password: "password"],
+documentation/README.md:61:- [AshNeo4j Migration History](topics/migration_from_ash_neo4j.md) — Background and context on the fork from AshNeo4j.
+documentation/jira_v26_8_21.md:40:    B -->|AshR2RML.Parity| G["Multiset Parity Witness (Neo4j vs Postgres)"]
+documentation/jira_v26_8_21_audit.md:16:### 2. Donor Code Residue (`AshNeo4j` / `Bolty`)
+documentation/jira_v26_8_21_audit.md:17:- **Critique:** `mix.exs` still depends on `:bolty` and `:ash_neo4j` modules. Tests raise `:econnrefused` errors when Bolty connection pools attempt to connect to port 7687 during generic `mix test` runs.
+documentation/jira_v26_8_21_audit.md:18:- **AGENTS.md Law:** Fork migration requires complete removal of Neo4j/Bolty/Cypher donor infrastructure from runtime unless explicitly justified as an optional adapter.
+documentation/jira_v26_8_21_audit.md:32:### Ticket 1: `R2RML-101` — Purge Neo4j/Bolty Donor Dependencies & Silence Connection Leaks
+documentation/jira_v26_8_21_audit.md:38:  Remove `:bolty` and `:ash_neo4j` runtime dependencies from `mix.exs`. Clean up `Bolty.Connection` background connection pool attempts during ExUnit test execution so generic `mix test` runs zero non-test network processes.
+documentation/jira_v26_8_21_audit.md:42:  3. All donor Cypher files categorized as `REMOVE` are deleted from `lib/`.
+documentation/jira_v26_8_25.md:39:- **Removed**: `bench/bbox_index_probe.exs` and `bench/spatial_containment.exs` — donor-era `ash_neo4j`/Cypher scripts unrelated to `ash_r2rml`, already flagged in `documentation/jira_v26_8_21_audit.md`'s `R2RML-101`.
+documentation/jira_v26_8_25_ard.md:48:### Carryover Status: `R2RML-101` — Purge Neo4j/Bolty Donor Dependencies & Silence Connection Leaks
+documentation/jira_v26_8_25_ard.md:52:1. `:bolty`/`:ash_neo4j` removed from `deps()` in `mix.exs` — **CLOSED**. `grep -n "bolty\|neo4j" mix.exs` returns no matches.
+documentation/jira_v26_8_25_ard.md:54:3. All donor Cypher files categorized `REMOVE` deleted from `lib/` — **CLOSED, re-confirmed**. `grep -rli neo4j lib/` still matches `lib/ash_r2rml.ex`, `lib/ash_r2rml/compiler.ex`, `lib/ash_r2rml/parity.ex`, and `lib/ash_r2rml/AGENTS.md`. The first three are the `:neo4j_postgres_parity`/`:neo4j_postgres` atom used as a parity-witness *kind* (`AshR2RML.CompilationReceipt.neo4j_postgres_parity`, `lib/ash_r2rml/compiler.ex:22,51,187,363`) — bookkeeping for an externally-observed comparison, not runtime Cypher/Bolty code. `AGENTS.md`'s match is prose in a historical planning doc ("Keep existing Neo4j/Bolt/Cypher implementation... as a control path"), not code. No `.cypher` files or `Bolty.*` module calls exist anywhere under `lib/`.
+documentation/receipts/consolidated_execution_202_tests.md:41:Excluding tags: [:show_neo4j, :bolt6, :cypher25, :apoc, :slow]
+documentation/receipts/fortune5_validation_receipt.md:66:- Direct Cypher/Neo4j query execution within the R2RML compiler (donor material isolated/removed from core contract).
+documentation/reference/support_matrix.md:97:AshR2RML does not provide Neo4j persistence, Cypher rendering, graph traversal expressions, vector indexes, spatial indexes, or a graph-database sandbox.
+documentation/topics/migration_from_ash_neo4j.md:1:# From AshNeo4j donor code to AshR2RML
+documentation/topics/migration_from_ash_neo4j.md:3:AshR2RML began from a fork of AshNeo4j. That ancestry matters for licensing, changelog history, and understanding which architectural patterns were reused, but it does not define the finished product.
+documentation/topics/migration_from_ash_neo4j.md:21:The finished product does not use Neo4j as its persistence target.
+documentation/topics/migration_from_ash_neo4j.md:25:| AshNeo4j donor concept | AshR2RML finished concept |
+documentation/topics/migration_from_ash_neo4j.md:27:| Neo4j node label | RDF class IRI |
+documentation/topics/migration_from_ash_neo4j.md:28:| Neo4j property mapping | RDF predicate/object mapping |
+documentation/topics/migration_from_ash_neo4j.md:29:| Neo4j edge descriptor | R2RML reference object map |
+documentation/topics/migration_from_ash_neo4j.md:31:| Cypher rendering | R2RML rendering |
+documentation/topics/migration_from_ash_neo4j.md:33:| Neo4j `Ash.DataLayer` | consumer's existing Ash data layer |
+documentation/topics/migration_from_ash_neo4j.md:37:## Why the changelog still mentions AshNeo4j
+documentation/topics/migration_from_ash_neo4j.md:45:Some donor-era documentation paths remain as small compatibility files so existing links fail informatively instead of presenting stale Cypher/Neo4j behavior. They are not active features.
+documentation/topics/migration_from_ash_neo4j.md:47:Examples include legacy filenames for atomics, traversal, spatial, vector, and Cypher-fragment rules.
+documentation/topics/migration_from_ash_neo4j.md:54:- no public runtime API requires Neo4j/Bolty/Cypher;
+documentation/topics/r2rml-side-by-side.md:11:This document defines the first migration PR for the `ash_r2rml` fork. The fork remains an AshNeo4j repository at the base revision; the new R2RML work is intentionally additive until behavioral equivalence is demonstrated.
+documentation/topics/r2rml-side-by-side.md:27:       SQL / Neo4j today     canonical mapping IR
+documentation/topics/r2rml-side-by-side.md:38:The fork contains valuable, already-tested extension machinery: Spark DSL sections, compile-time verifiers, persisted mappings, relationship introspection, deterministic query construction, and an extensive Neo4j test suite. Replacing those surfaces before the new semantic path is executable would discard evidence.
+documentation/topics/r2rml-side-by-side.md:42:- **Control topology:** existing `AshNeo4j.DataLayer`, Bolt, Cypher, and its full tests.
+documentation/topics/r2rml-side-by-side.md:45:A resource can carry both the `neo4j` and `r2rml` DSL blocks. Presence of both mappings is observable through `AshR2RML.Resource.Info`.
+documentation/topics/rdf-elixir-semantic-execution.md:130:8. inherited Neo4j control query;
+documentation/topics/rdf-elixir-semantic-execution.md:143:- Ontop CLI, SPARQL.Client/Ontop, SPARQL.ex local RDF, PostgreSQL SQL, and Neo4j control observations agree for the bounded corpus;
+lib/ash_r2rml.ex:143:          neo4j_postgres_parity: :UNKNOWN,
+lib/ash_r2rml.ex:148:          blocked: [:sparql_sql_behavioral_parity, :neo4j_postgres_semantic_parity, :cutover_authority],
+lib/ash_r2rml/AGENTS.md:41:1. Keep existing Neo4j/Bolt/Cypher implementation and tests intact as a control path.
+lib/ash_r2rml/AGENTS.md:48:8. Require observed SQL/SPARQL behavioral parity and Neo4j/PostgreSQL semantic parity against the same admitted subject.
+lib/ash_r2rml/AGENTS.md:114:6. Neo4j/PostgreSQL semantic comparison corpus
+lib/ash_r2rml/compiler.ex:22:    :neo4j_postgres_parity,
+lib/ash_r2rml/compiler.ex:51:          neo4j_postgres_parity: :UNKNOWN | :VERIFIED,
+lib/ash_r2rml/compiler.ex:169:        neo4j_postgres_parity: :VERIFIED,
+lib/ash_r2rml/compiler.ex:179:      when kind in [:sparql_sql, :neo4j_postgres] and is_map(witness) do
+lib/ash_r2rml/compiler.ex:187:          :neo4j_postgres -> %{receipt | neo4j_postgres_parity: :VERIFIED}
+lib/ash_r2rml/compiler.ex:193:          :neo4j_postgres -> List.delete(receipt.blocked, :neo4j_postgres_semantic_parity)
+lib/ash_r2rml/compiler.ex:363:      neo4j_postgres_parity: :UNKNOWN,
+lib/ash_r2rml/compiler.ex:388:        :neo4j_postgres_semantic_parity,
+lib/ash_r2rml/compiler.ex:403:      neo4j_postgres_parity: :UNKNOWN,
+lib/ash_r2rml/compiler.ex:408:        :neo4j_postgres_semantic_parity,
+lib/ash_r2rml/parity.ex:27:          kind: :sparql_sql | :neo4j_postgres,
+lib/ash_r2rml/parity.ex:50:  admitted SQL/SPARQL/Cypher queries, then pass their observed rows here. The
+lib/ash_r2rml/parity.ex:57:  @spec compare(:sparql_sql | :neo4j_postgres, term(), list(), list(), map()) :: ParityReceipt.t()
+lib/ash_r2rml/parity.ex:59:      when kind in [:sparql_sql, :neo4j_postgres] and is_list(left_rows) and is_list(right_rows) do
+lib/ash_r2rml/parity.ex:153:  defp default_left(:neo4j_postgres), do: :neo4j
+lib/ash_r2rml/parity.ex:155:  defp default_right(:neo4j_postgres), do: :postgres
+logos/diffo.jpg.license:1:SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+mix.lock.license:1:SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+test/ash_r2rml_8020_coverage_test.exs:37:        neo4j_postgres_parity: :UNKNOWN,
+test/ash_r2rml_8020_coverage_test.exs:46:        neo4j_postgres_parity: :VERIFIED,
+test/integration/obda_crown.exs:10:# - Neo4j remains the inherited control graph
+test/integration/obda_crown.exs:18:  @neo4j_url "http://127.0.0.1:7474/db/neo4j/tx/commit"
+test/integration/obda_crown.exs:114:  @neo4j_query """
+test/integration/obda_crown.exs:283:    # Execution topology 4: inherited Neo4j control graph.
+test/integration/obda_crown.exs:284:    seed_neo4j!()
+test/integration/obda_crown.exs:285:    neo4j_rows = neo4j_query!(@neo4j_query)
+test/integration/obda_crown.exs:287:    neo4j_postgres =
+test/integration/obda_crown.exs:289:        :neo4j_postgres,
+test/integration/obda_crown.exs:291:        neo4j_rows,
+test/integration/obda_crown.exs:294:          left_system: :neo4j,
+test/integration/obda_crown.exs:296:          left_query: @neo4j_query,
+test/integration/obda_crown.exs:303:    unless neo4j_postgres.verified?, do: raise("Neo4j/PostgreSQL parity mismatch")
+test/integration/obda_crown.exs:309:        :neo4j_postgres,
+test/integration/obda_crown.exs:310:        Map.from_struct(neo4j_postgres)
+test/integration/obda_crown.exs:316:    unless technical_receipt.neo4j_postgres_parity == :VERIFIED,
+test/integration/obda_crown.exs:317:      do: raise("Neo4j/Postgres witness was not admitted")
+test/integration/obda_crown.exs:336:          neo4j_postgres: neo4j_postgres,
+test/integration/obda_crown.exs:350:    IO.puts("ALIVE bounded corpus: Turtle/JSON-LD + SPARQL.ex/SPARQL.Client/Ontop + Postgres/Neo4j parity")
+test/integration/obda_crown.exs:512:  defp seed_neo4j! do
+test/integration/obda_crown.exs:513:    cypher!("MATCH (n) DETACH DELETE n")
+test/integration/obda_crown.exs:515:    cypher!("""
+test/integration/obda_crown.exs:527:  defp neo4j_query!(statement) do
+test/integration/obda_crown.exs:528:    response = cypher!(statement)
+test/integration/obda_crown.exs:537:  defp cypher!(statement) do
+test/integration/obda_crown.exs:548:          "neo4j:password",
+test/integration/obda_crown.exs:553:          @neo4j_url
+test/integration/obda_crown.exs:562:      errors -> raise "Neo4j control query failed: #{inspect(errors)}"
+test/ontology_first_compiler_test.exs:296:      |> AshR2RML.Compiler.attach_parity_witness(:neo4j_postgres, %{
+test/ontology_first_compiler_test.exs:298:        receipt_sha256: "neo4j-postgres-receipt"
+test/ontology_first_compiler_test.exs:302:    assert receipt.neo4j_postgres_parity == :VERIFIED
+test/parity_and_ggen_test.exs:100:    neo4j_postgres =
+test/parity_and_ggen_test.exs:101:      AshR2RML.Parity.compare(:neo4j_postgres, :organization, [%{id: "1"}], [%{"id" => "1"}])
+test/parity_and_ggen_test.exs:107:        :neo4j_postgres,
+test/parity_and_ggen_test.exs:108:        Map.from_struct(neo4j_postgres)
+usage-rules.md:2:SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs.contributors>
+usage-rules.md:217:- require Neo4j;
+usage-rules.md:218:- render Cypher;
+usage-rules/atomics.md:9:This file remains only so existing `usage_rules` links from the AshNeo4j donor history do not resolve to stale Cypher guidance.
+usage-rules/combination-queries.md:9:This compatibility file intentionally contains no Cypher guidance.
+usage-rules/cypher-fragments.md:1:# Legacy path: Cypher fragments
+usage-rules/cypher-fragments.md:3:AshR2RML does not render or execute Cypher.
+usage-rules/traverse.md:11:This file remains only to prevent donor-era links from serving stale traversal/Cypher instructions.
+
+## Filename matches
+documentation/topics/migration_from_ash_neo4j.md
+usage-rules/cypher-fragments.md
