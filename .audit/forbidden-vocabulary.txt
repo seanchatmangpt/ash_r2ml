@@ -1,6 +1,6 @@
-# Temporary forbidden vocabulary file inventory
+# Temporary forbidden vocabulary byte inventory
 
-## Files whose contents match
+## Tracked files whose bytes match
 .dialyzer_ignore.exs
 .github/workflows/ci.yaml
 .github/workflows/reuse.yaml
@@ -41,6 +41,6 @@ usage-rules/combination-queries.md
 usage-rules/cypher-fragments.md
 usage-rules/traverse.md
 
-## Filenames that match
+## Tracked filenames that match
 documentation/topics/migration_from_ash_neo4j.md
 usage-rules/cypher-fragments.md
