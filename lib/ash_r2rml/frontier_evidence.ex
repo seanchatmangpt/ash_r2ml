@@ -14,8 +14,9 @@ defmodule AshR2RML.FrontierEvidence do
   """
 
   alias AshR2RML.KnowledgeHook.{Evaluation, EvaluationReceipt, Intent}
+  alias AshR2RML.KnowledgeHook.Ash
   alias AshR2RML.KnowledgeHook.Ash.ObservationReceipt
-  alias AshR2RML.Refusal
+  alias AshR2RML.{Compiler, Refusal}
 
   @schema "frontier-evidence/v1"
   @producer "ash_r2rml"
@@ -96,7 +97,9 @@ defmodule AshR2RML.FrontierEvidence do
 
     cond do
       Map.get(fragment, :schema) != @schema ->
-        refusal(:frontier_evidence, "unsupported FrontierEvidence schema", %{schema: Map.get(fragment, :schema)})
+        refusal(:frontier_evidence, "unsupported FrontierEvidence schema", %{
+          schema: Map.get(fragment, :schema)
+        })
 
       Map.get(fragment, :producer) != @producer ->
         refusal(:frontier_evidence, "FrontierEvidence producer identity changed", %{
@@ -116,7 +119,9 @@ defmodule AshR2RML.FrontierEvidence do
         })
 
       not sha256_prefixed?(expected_hash) ->
-        refusal(:frontier_evidence, "FrontierEvidence artifact identity is malformed", %{artifact_hash: expected_hash})
+        refusal(:frontier_evidence, "FrontierEvidence artifact identity is malformed", %{
+          artifact_hash: expected_hash
+        })
 
       expected_hash != fingerprint(body) ->
         refusal(:frontier_evidence, "FrontierEvidence artifact identity does not replay", %{
@@ -134,12 +139,9 @@ defmodule AshR2RML.FrontierEvidence do
 
   defp validate_options(opts) do
     if Keyword.keyword?(opts) do
-      unknown = Keyword.keys(opts) -- @allowed_options
-
-      if unknown == [] do
-        :ok
-      else
-        refusal(:frontier_evidence, "FrontierEvidence received unsupported options", %{unsupported: unknown})
+      case Keyword.keys(opts) -- @allowed_options do
+        [] -> :ok
+        unknown -> refusal(:frontier_evidence, "FrontierEvidence received unsupported options", %{unsupported: unknown})
       end
     else
       refusal(:frontier_evidence, "FrontierEvidence options must be a keyword list", %{got: inspect(opts)})
@@ -184,14 +186,33 @@ defmodule AshR2RML.FrontierEvidence do
     observations
     |> Enum.with_index()
     |> Enum.reduce_while({:ok, MapSet.new()}, fn {observation, index}, {:ok, receipts} ->
-      case validate_observation(observation, index) do
-        :ok -> {:cont, {:ok, MapSet.put(receipts, observation.receipt_sha256)}}
+      with :ok <- validate_observation(observation, index),
+           :ok <- reject_duplicate(receipts, observation.receipt_sha256, :observations, "observation") do
+        {:cont, {:ok, MapSet.put(receipts, observation.receipt_sha256)}}
+      else
         {:error, %Refusal{} = refusal} -> {:halt, {:error, refusal}}
       end
     end)
   end
 
   defp validate_observation(%ObservationReceipt{} = receipt, index) do
+    expected_replay = %{
+      adapter: Ash,
+      source: receipt.source,
+      subject_sha256: Compiler.sha256(receipt.subject)
+    }
+
+    expected_receipt =
+      Compiler.sha256(%{
+        version: 1,
+        source: receipt.source,
+        subject: receipt.subject,
+        replay: expected_replay,
+        observed?: true,
+        authority: :UNAUTHORIZED,
+        consequence: :none
+      })
+
     cond do
       not sha256?(receipt.receipt_sha256) ->
         evidence_refusal(:observation, index, "observation receipt identity is malformed", receipt)
@@ -201,6 +222,12 @@ defmodule AshR2RML.FrontierEvidence do
 
       not is_map(receipt.subject) or not is_map(receipt.replay) ->
         evidence_refusal(:observation, index, "observation subject/replay identity is incomplete", receipt)
+
+      receipt.replay != expected_replay ->
+        evidence_refusal(:observation, index, "observation replay descriptor does not match its native subject", receipt)
+
+      receipt.receipt_sha256 != expected_receipt ->
+        evidence_refusal(:observation, index, "observation receipt identity does not replay", receipt)
 
       receipt.version != 1 or receipt.observed? != true or receipt.status != :PARTIAL_ALIVE ->
         evidence_refusal(
@@ -277,8 +304,7 @@ defmodule AshR2RML.FrontierEvidence do
       Map.get(trigger, :standing) != :observed_trigger_match_only ->
         trigger_refusal(hook_id, "trigger receipt standing is outside OBSERVE/SELECT", trigger)
 
-      Map.get(trigger, :authority) != :UNAUTHORIZED or
-          Map.get(trigger, :consequence) != expected_consequence ->
+      Map.get(trigger, :authority) != :UNAUTHORIZED or Map.get(trigger, :consequence) != expected_consequence ->
         trigger_refusal(hook_id, "trigger receipt authority/consequence is outside OBSERVE/SELECT", trigger)
 
       :actuation_authority not in List.wrap(Map.get(trigger, :blocked)) ->
@@ -286,6 +312,9 @@ defmodule AshR2RML.FrontierEvidence do
 
       not is_list(refs) or refs == [] or not Enum.all?(refs, &sha256?/1) ->
         trigger_refusal(hook_id, "trigger receipt observation identities are malformed", trigger)
+
+      length(refs) != length(Enum.uniq(refs)) ->
+        trigger_refusal(hook_id, "trigger receipt repeats an observation identity", trigger)
 
       not Enum.all?(refs, &MapSet.member?(observation_receipts, &1)) ->
         trigger_refusal(hook_id, "trigger receipt references an unexported Ash observation", trigger)
@@ -302,15 +331,29 @@ defmodule AshR2RML.FrontierEvidence do
         got: inspect_type(trigger)
       })
 
+  defp validate_evaluations([], _admitted_triggers),
+    do: refusal(:evaluations, "FrontierEvidence requires at least one knowledge-hook evaluation")
+
   defp validate_evaluations(evaluations, admitted_triggers) do
     evaluations
     |> Enum.with_index()
-    |> Enum.reduce_while(:ok, fn {evaluation, index}, :ok ->
-      case validate_evaluation(evaluation, index, admitted_triggers) do
-        :ok -> {:cont, :ok}
-        {:error, %Refusal{} = refusal} -> {:halt, {:error, refusal}}
-      end
+    |> Enum.reduce_while({:ok, {MapSet.new(), MapSet.new()}}, fn
+      {evaluation, index}, {:ok, {receipt_ids, hook_ids}} ->
+        with :ok <- validate_evaluation(evaluation, index, admitted_triggers),
+             :ok <- reject_duplicate(receipt_ids, evaluation.receipt.receipt_sha256, :evaluations, "evaluation receipt"),
+             :ok <- reject_duplicate(hook_ids, evaluation.hook_id, :evaluations, "evaluation hook") do
+          {:cont,
+           {:ok,
+            {MapSet.put(receipt_ids, evaluation.receipt.receipt_sha256),
+             MapSet.put(hook_ids, evaluation.hook_id)}}}
+        else
+          {:error, %Refusal{} = refusal} -> {:halt, {:error, refusal}}
+        end
     end)
+    |> case do
+      {:ok, _identities} -> :ok
+      {:error, %Refusal{} = refusal} -> {:error, refusal}
+    end
   end
 
   defp validate_evaluation(
@@ -318,7 +361,8 @@ defmodule AshR2RML.FrontierEvidence do
          index,
          admitted_triggers
        ) do
-    with :ok <- validate_evaluation_receipt(evaluation, receipt, index, admitted_triggers),
+    with {:ok, observation_state} <- evaluation_observation_state(evaluation, index),
+         :ok <- validate_evaluation_receipt(evaluation, receipt, observation_state, index, admitted_triggers),
          :ok <- validate_intent(evaluation, receipt, index) do
       :ok
     end
@@ -331,22 +375,99 @@ defmodule AshR2RML.FrontierEvidence do
         got: inspect_type(other)
       })
 
-  defp validate_evaluation_receipt(evaluation, receipt, index, admitted_triggers) do
+  defp evaluation_observation_state(%Evaluation{observations: observations}, index)
+       when is_list(observations) do
+    summaries =
+      Enum.map(observations, fn observation ->
+        if is_map(observation) do
+          {Map.get(observation, :result_sha256), Map.get(observation, :standing)}
+        else
+          {:invalid, :invalid}
+        end
+      end)
+
+    if Enum.any?(summaries, fn {hash, _standing} -> hash != nil and not sha256?(hash) end) do
+      refusal(:evaluations, "evaluation contains a malformed observation identity", %{index: index})
+    else
+      hashes = Enum.map(summaries, &elem(&1, 0))
+      standings = Enum.map(summaries, &elem(&1, 1))
+
+      {:ok,
+       %{
+         count: length(summaries),
+         current_result_sha256: List.last(hashes),
+         previous_result_sha256: if(length(hashes) > 1, do: hd(hashes), else: nil),
+         standings: standings
+       }}
+    end
+  end
+
+  defp evaluation_observation_state(_evaluation, index),
+    do: refusal(:evaluations, "evaluation observations must be a list", %{index: index})
+
+  defp validate_evaluation_receipt(evaluation, receipt, observation_state, index, admitted_triggers) do
     expected_standing =
       if evaluation.matched?, do: :constructed_intent_not_actuated, else: :observed_predicate_only
 
     expected_consequence = if evaluation.matched?, do: :intent_constructed, else: :none
     expected_execution = evaluation_execution(receipt.predicate_type)
+    expected_count = evaluation_observation_count(receipt.predicate_type)
+
+    expected_identity = %{
+      hook_id: receipt.hook_id,
+      plan_sha256: receipt.plan_sha256,
+      predicate_sha256: receipt.predicate_sha256
+    }
+
+    expected_receipt =
+      Compiler.sha256(%{
+        hook_id: receipt.hook_id,
+        plan_sha256: receipt.plan_sha256,
+        predicate_type: receipt.predicate_type,
+        predicate_sha256: receipt.predicate_sha256,
+        current_result_sha256: observation_state.current_result_sha256,
+        previous_result_sha256: observation_state.previous_result_sha256,
+        external_trigger_receipt_sha256: receipt.external_trigger_receipt_sha256,
+        matched?: receipt.matched?,
+        authority: :UNAUTHORIZED,
+        consequence: expected_consequence,
+        observation_standing: observation_state.standings
+      })
 
     cond do
       not sha256?(receipt.receipt_sha256) or not sha256?(receipt.plan_sha256) ->
         evidence_refusal(:evaluation, index, "evaluation/plan receipt identity is malformed", receipt)
+
+      receipt.predicate_type not in [:external_trigger, :ask, :result_delta] ->
+        evidence_refusal(:evaluation, index, "evaluation predicate type is outside the admitted hook calculus", receipt)
+
+      receipt.predicate_type != :external_trigger and not sha256?(receipt.predicate_sha256) ->
+        evidence_refusal(:evaluation, index, "evaluation predicate identity is malformed", receipt)
+
+      receipt.predicate_type == :external_trigger and not is_nil(receipt.predicate_sha256) ->
+        evidence_refusal(:evaluation, index, "external-trigger evaluation carries a synthetic query identity", receipt)
 
       evaluation.hook_id != receipt.hook_id or not is_binary(evaluation.hook_id) or evaluation.hook_id == "" ->
         evidence_refusal(:evaluation, index, "evaluation hook identity does not match its receipt", receipt)
 
       not is_boolean(evaluation.matched?) or evaluation.matched? != receipt.matched? ->
         evidence_refusal(:evaluation, index, "evaluation match state does not match its receipt", receipt)
+
+      expected_count != observation_state.count ->
+        evidence_refusal(:evaluation, index, "evaluation observation count does not match its predicate type", receipt)
+
+      receipt.current_result_sha256 != observation_state.current_result_sha256 or
+          receipt.previous_result_sha256 != observation_state.previous_result_sha256 ->
+        evidence_refusal(:evaluation, index, "evaluation result identities do not match exported observations", receipt)
+
+      receipt.identity != expected_identity ->
+        evidence_refusal(:evaluation, index, "evaluation identity descriptor does not match its receipt", receipt)
+
+      not replay_matches?(receipt.replay, receipt, observation_state) ->
+        evidence_refusal(:evaluation, index, "evaluation replay descriptor does not match its receipt", receipt)
+
+      receipt.receipt_sha256 != expected_receipt ->
+        evidence_refusal(:evaluation, index, "evaluation receipt identity does not replay", receipt)
 
       receipt.status != :PARTIAL_ALIVE or receipt.standing != expected_standing ->
         evidence_refusal(
@@ -364,7 +485,7 @@ defmodule AshR2RML.FrontierEvidence do
           receipt
         )
 
-      is_nil(expected_execution) or receipt.executed != expected_execution ->
+      receipt.executed != expected_execution ->
         evidence_refusal(
           :evaluation,
           index,
@@ -378,9 +499,6 @@ defmodule AshR2RML.FrontierEvidence do
       :actuation_authority not in receipt.blocked ->
         evidence_refusal(:evaluation, index, "evaluation does not explicitly block actuation authority", receipt)
 
-      not is_map(receipt.identity) or not is_map(receipt.replay) ->
-        evidence_refusal(:evaluation, index, "evaluation identity/replay evidence is incomplete", receipt)
-
       receipt.predicate_type == :external_trigger ->
         validate_external_trigger_link(evaluation, receipt, index, admitted_triggers)
 
@@ -391,6 +509,16 @@ defmodule AshR2RML.FrontierEvidence do
         :ok
     end
   end
+
+  defp replay_matches?(replay, receipt, observation_state) when is_map(replay) do
+    Map.get(replay, :predicate_type) == receipt.predicate_type and
+      Map.get(replay, :observation_standing) == observation_state.standings and
+      Map.get(replay, :current_result_sha256) == observation_state.current_result_sha256 and
+      Map.get(replay, :previous_result_sha256) == observation_state.previous_result_sha256 and
+      Map.get(replay, :external_trigger_receipt_sha256) == receipt.external_trigger_receipt_sha256
+  end
+
+  defp replay_matches?(_replay, _receipt, _observation_state), do: false
 
   defp validate_external_trigger_link(evaluation, receipt, index, admitted_triggers) do
     case Map.fetch(admitted_triggers, evaluation.hook_id) do
@@ -423,8 +551,15 @@ defmodule AshR2RML.FrontierEvidence do
 
   defp validate_intent(%Evaluation{matched?: false, intent: nil}, _receipt, _index), do: :ok
 
-  defp validate_intent(%Evaluation{matched?: true, intent: %Intent{} = intent}, receipt, index) do
+  defp validate_intent(
+         %Evaluation{matched?: true, hook_id: hook_id, intent: %Intent{} = intent},
+         receipt,
+         index
+       ) do
     cond do
+      intent.hook_id != hook_id ->
+        evidence_refusal(:intent, index, "constructed intent hook identity differs from its evaluation", intent)
+
       intent.authority != :UNAUTHORIZED ->
         evidence_refusal(:intent, index, "constructed intent carries actuation authority", intent)
 
@@ -461,6 +596,19 @@ defmodule AshR2RML.FrontierEvidence do
 
   defp evaluation_execution(:ask), do: [:sparql_observation, :ask_evaluation]
   defp evaluation_execution(_), do: nil
+
+  defp evaluation_observation_count(:external_trigger), do: 0
+  defp evaluation_observation_count(:ask), do: 1
+  defp evaluation_observation_count(:result_delta), do: 2
+  defp evaluation_observation_count(_), do: -1
+
+  defp reject_duplicate(seen, identity, subject, kind) do
+    if MapSet.member?(seen, identity) do
+      refusal(subject, "FrontierEvidence refuses duplicate #{kind} identity", %{identity: identity})
+    else
+      :ok
+    end
+  end
 
   defp trigger_refusal(hook_id, detail, trigger) do
     refusal(:trigger_receipts, detail, %{
@@ -517,7 +665,9 @@ defmodule AshR2RML.FrontierEvidence do
   defp canonical_term(other), do: other
 
   defp sha256?(value), do: is_binary(value) and Regex.match?(~r/\A[0-9a-f]{64}\z/, value)
-  defp sha256_prefixed?(value), do: is_binary(value) and Regex.match?(~r/\Asha256:[0-9a-f]{64}\z/, value)
+
+  defp sha256_prefixed?(value),
+    do: is_binary(value) and Regex.match?(~r/\Asha256:[0-9a-f]{64}\z/, value)
 
   defp inspect_type(%module{}), do: inspect(module)
   defp inspect_type(value), do: inspect(value)
