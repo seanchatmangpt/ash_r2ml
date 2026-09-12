@@ -213,7 +213,7 @@ defmodule AshR2RML.DfCM do
            %{strategy: strategy, candidates: candidates}
          )}
 
-      strategy when is_atom(strategy) ->
+      strategy ->
         if strategy in candidates do
           {:ok, relationship}
         else
@@ -225,15 +225,6 @@ defmodule AshR2RML.DfCM do
              %{strategy: strategy, candidates: candidates}
            )}
         end
-
-      other ->
-        {:error,
-         Refusal.new(
-           :REFUSED_AMBIGUOUS_RELATIONSHIP,
-           relationship.name,
-           "unsupported storage strategy value",
-           %{strategy: other}
-         )}
     end
   end
 end
