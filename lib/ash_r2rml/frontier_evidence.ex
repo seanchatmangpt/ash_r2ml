@@ -22,6 +22,7 @@ defmodule AshR2RML.FrontierEvidence do
   @authority_ceiling "CONSTRUCT"
   @allowed_options [:producer_head, :standing]
   @allowed_standings ~w(UNKNOWN PARTIAL_ALIVE BLOCKED BUILD_BROKEN UNSUPPORTED)
+  @observation_execution [:native_ash_value_observation]
   @required_refusals [
     "callbacks",
     "timers",
@@ -189,8 +190,13 @@ defmodule AshR2RML.FrontierEvidence do
       receipt.authority != :UNAUTHORIZED or receipt.consequence != :none ->
         evidence_refusal(:observation, index, "observation carries authority or consequence outside OBSERVE", receipt)
 
-      receipt.executed != [] ->
-        evidence_refusal(:observation, index, "observation claims executed consequence", receipt)
+      receipt.executed != @observation_execution ->
+        evidence_refusal(
+          :observation,
+          index,
+          "observation execution trace is outside the admitted native observation transform",
+          receipt
+        )
 
       :observation_receipt_identity not in receipt.verified ->
         evidence_refusal(:observation, index, "observation identity was not verified by the native adapter", receipt)
@@ -240,6 +246,12 @@ defmodule AshR2RML.FrontierEvidence do
       })
 
   defp validate_evaluation_receipt(evaluation, receipt, index, observation_receipts) do
+    expected_standing =
+      if evaluation.matched?, do: :constructed_intent_not_actuated, else: :observed_predicate_only
+
+    expected_consequence = if evaluation.matched?, do: :intent_constructed, else: :none
+    expected_execution = evaluation_execution(receipt.predicate_type)
+
     cond do
       not sha256?(receipt.receipt_sha256) or not sha256?(receipt.plan_sha256) ->
         evidence_refusal(:evaluation, index, "evaluation/plan receipt identity is malformed", receipt)
@@ -250,14 +262,17 @@ defmodule AshR2RML.FrontierEvidence do
       not is_boolean(evaluation.matched?) or evaluation.matched? != receipt.matched? ->
         evidence_refusal(:evaluation, index, "evaluation match state does not match its receipt", receipt)
 
-      receipt.status != :PARTIAL_ALIVE or receipt.standing != :observed_predicate_only ->
-        evidence_refusal(:evaluation, index, "evaluation standing is outside the admitted predicate-only contract", receipt)
+      receipt.status != :PARTIAL_ALIVE or receipt.standing != expected_standing ->
+        evidence_refusal(:evaluation, index, "evaluation standing is outside the admitted SELECT/CONSTRUCT contract", receipt)
 
-      receipt.authority != :UNAUTHORIZED or receipt.consequence != :none ->
-        evidence_refusal(:evaluation, index, "evaluation carries authority or consequence outside SELECT/CONSTRUCT", receipt)
+      receipt.authority != :UNAUTHORIZED or receipt.consequence != expected_consequence ->
+        evidence_refusal(:evaluation, index, "evaluation authority/consequence is outside the admitted SELECT/CONSTRUCT contract", receipt)
 
-      receipt.executed != [] ->
-        evidence_refusal(:evaluation, index, "evaluation receipt claims executed consequence", receipt)
+      is_nil(expected_execution) or receipt.executed != expected_execution ->
+        evidence_refusal(:evaluation, index, "evaluation execution trace is outside admitted predicate evaluation/intent selection", receipt)
+
+      :evaluation_receipt_identity not in receipt.verified or :predicate_identity not in receipt.verified ->
+        evidence_refusal(:evaluation, index, "evaluation identity was not verified by the native evaluator", receipt)
 
       :actuation_authority not in receipt.blocked ->
         evidence_refusal(:evaluation, index, "evaluation does not explicitly block actuation authority", receipt)
@@ -315,6 +330,15 @@ defmodule AshR2RML.FrontierEvidence do
         intent: inspect_type(Map.get(evaluation, :intent))
       })
 
+  defp evaluation_execution(:external_trigger),
+    do: [:external_trigger_witness_admission, :intent_selection]
+
+  defp evaluation_execution(:result_delta),
+    do: [:previous_sparql_observation, :current_sparql_observation, :result_delta]
+
+  defp evaluation_execution(:ask), do: [:sparql_observation, :ask_evaluation]
+  defp evaluation_execution(_), do: nil
+
   defp evidence_refusal(kind, index, detail, receipt) do
     refusal(:frontier_evidence, detail, %{
       kind: kind,
@@ -362,5 +386,5 @@ defmodule AshR2RML.FrontierEvidence do
   defp sha256_prefixed?(value), do: is_binary(value) and Regex.match?(~r/\Asha256:[0-9a-f]{64}\z/, value)
 
   defp inspect_type(%module{}), do: inspect(module)
-  defp inspect_type(value), do: value |> :erlang.term_to_binary() |> then(fn _ -> inspect(value) end)
+  defp inspect_type(value), do: inspect(value)
 end
