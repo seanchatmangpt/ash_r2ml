@@ -50,6 +50,44 @@ future transport are projections or adapters around that admitted object.
 | pipeline / source connector | transport adapter; semantic identity remains external to the vendor |
 | proprietary ontology runtime | removed from canonical semantic authority |
 
+## DfCM closure
+
+The migration does not replace one proprietary runtime with one newly hard-coded
+runtime. Before any irreversible cutover, preserve the lawful reversible product
+space and collapse dimensions only when admitted constraints force a choice.
+
+For the API-adjacent compiler surface today:
+
+```text
+GraphQL projection ∈ {off, canonical read-only}
+JSON:API compatibility ∈ {off, existing AshJsonApi projection}
+
+Projection space = GraphQL × JSON:API
+                 = 2 × 2
+                 = 4 lawful combinations
+```
+
+All four combinations remain available. Enabling canonical GraphQL does not
+silently disable JSON:API; enabling JSON:API does not pull `AshGraphql.Resource`
+back into the canonical GraphQL path. That independence is an executable
+invariant, not a migration preference.
+
+Composed ontologies also preserve their identities instead of requiring local
+name uniqueness. If two admitted classes collapse to the same GraphQL root
+field name — including a single-object query colliding with another class's
+list query — the compiler deterministically allocates a content-addressed
+suffix. It does not reject a lawful ontology merely because two vocabularies
+chose adjacent local names, and it does not silently let one field overwrite
+another.
+
+Runtime query serving is deliberately not selected by this compiler. The
+manifest records `runtime_execution: external` and `backend_selection:
+unselected`. That is a DfCM boundary, not unfinished hidden work: AshR2RML owns
+the semantic read contract; the consuming runtime owns transport/query serving
+under its own observation/authorization boundary. `runtime_query_execution` is
+therefore classified `UNSUPPORTED` by this compile-time projection rather than
+as a blocked compiler edge.
+
 ## Read-plane law
 
 The externally generated semantic plane is read-only by construction.
@@ -82,8 +120,8 @@ receipts/graphql-projection.json
 ```
 
 The receipt explicitly records `authority: none`, `mutation_root: false`, and
-`subscription_root: false`. Runtime query execution remains a separate standing
-claim.
+`subscription_root: false`. It records runtime query execution as unsupported
+by this compiler surface rather than inventing a server or persistence owner.
 
 ## Write-plane law
 
@@ -114,7 +152,8 @@ grant the semantic compiler or a GraphQL caller authority to execute them.
 3. **Admit** — close operational cardinality, datatype, identity, and structural
    constraints with the application profile + SHACL.
 4. **Manufacture side-by-side** — generate Ash, PostgreSQL, R2RML, SHACL, and
-   optional read-only GraphQL from the same SemanticIR.
+   optional read-only GraphQL from the same SemanticIR while preserving lawful
+   sibling projection combinations.
 5. **Verify equivalence** — execute representative read/process/action corpora
    against both worlds. Successful manufacture alone is PARTIAL_ALIVE.
 6. **Move consequence paths** — migrate named actions behind BRCE one bounded
@@ -153,6 +192,9 @@ claimed crown:
 - vendor-specific identity is required to interpret canonical objects;
 - a generated projection must be reverse-engineered to reconstruct meaning;
 - external semantic protocols can independently mutate state;
+- lawful sibling read projections cannot coexist without one implicitly
+  selecting, disabling, or re-authoring another;
+- composed ontologies lose a class because generated protocol names collide;
 - equivalent reads/processes/actions cannot be replayed after removing the
   incumbent transport;
 - new vendor captures repeatedly require bespoke semantic reasoning instead of
