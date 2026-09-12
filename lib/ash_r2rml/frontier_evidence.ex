@@ -224,7 +224,12 @@ defmodule AshR2RML.FrontierEvidence do
         evidence_refusal(:observation, index, "observation subject/replay identity is incomplete", receipt)
 
       receipt.replay != expected_replay ->
-        evidence_refusal(:observation, index, "observation replay descriptor does not match its native subject", receipt)
+        evidence_refusal(
+          :observation,
+          index,
+          "observation replay descriptor does not match its native subject",
+          receipt
+        )
 
       receipt.receipt_sha256 != expected_receipt ->
         evidence_refusal(:observation, index, "observation receipt identity does not replay", receipt)
@@ -340,12 +345,11 @@ defmodule AshR2RML.FrontierEvidence do
     |> Enum.reduce_while({:ok, {MapSet.new(), MapSet.new()}}, fn
       {evaluation, index}, {:ok, {receipt_ids, hook_ids}} ->
         with :ok <- validate_evaluation(evaluation, index, admitted_triggers),
-             :ok <- reject_duplicate(receipt_ids, evaluation.receipt.receipt_sha256, :evaluations, "evaluation receipt"),
+             :ok <-
+               reject_duplicate(receipt_ids, evaluation.receipt.receipt_sha256, :evaluations, "evaluation receipt"),
              :ok <- reject_duplicate(hook_ids, evaluation.hook_id, :evaluations, "evaluation hook") do
           {:cont,
-           {:ok,
-            {MapSet.put(receipt_ids, evaluation.receipt.receipt_sha256),
-             MapSet.put(hook_ids, evaluation.hook_id)}}}
+           {:ok, {MapSet.put(receipt_ids, evaluation.receipt.receipt_sha256), MapSet.put(hook_ids, evaluation.hook_id)}}}
         else
           {:error, %Refusal{} = refusal} -> {:halt, {:error, refusal}}
         end
