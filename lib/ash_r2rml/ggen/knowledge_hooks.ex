@@ -38,7 +38,8 @@ defmodule AshR2RML.Ggen.KnowledgeHooks do
     plan_projection = AshR2RML.KnowledgeHooks.projection(plan)
 
     with {:ok, specs} <- Spec.from_plan(plan),
-         {:ok, scheduled_specs} <- Scheduler.schedule(specs) do
+         {:ok, scheduled_specs} <- Scheduler.schedule(specs),
+         {:ok, ash_projection} <- AshR2RML.KnowledgeHook.Ash.projection(plan) do
       spec_projection = %{
         version: 1,
         authority: :UNAUTHORIZED,
@@ -50,6 +51,7 @@ defmodule AshR2RML.Ggen.KnowledgeHooks do
       }
 
       spec_bundle_sha256 = Compiler.sha256(spec_projection)
+      ash_observation_projection_sha256 = ash_projection.projection_sha256
 
       receipt = %{
         status: :PARTIAL_ALIVE,
@@ -58,17 +60,20 @@ defmodule AshR2RML.Ggen.KnowledgeHooks do
         authority_ceiling: :CONSTRUCT,
         plan_sha256: plan.plan_sha256,
         spec_bundle_sha256: spec_bundle_sha256,
+        ash_observation_projection_sha256: ash_observation_projection_sha256,
         hook_count: length(plan.hooks),
         schedule: spec_projection.schedule,
         generated: [
           "generated/knowledge-hooks/plan.json",
-          "generated/knowledge-hooks/specs.json"
+          "generated/knowledge-hooks/specs.json",
+          "generated/knowledge-hooks/ash-observers.json"
         ],
-        blocked: [:hook_actuation_authority]
+        blocked: [:callbacks, :timers, :unobserved_external_triggers, :hook_actuation_authority]
       }
 
       with {:ok, plan_json} <- encode_json(plan_projection),
            {:ok, specs_json} <- encode_json(spec_projection),
+           {:ok, ash_json} <- encode_json(ash_projection),
            {:ok, receipt_json} <- encode_json(receipt) do
         {:ok,
          %{
@@ -78,11 +83,13 @@ defmodule AshR2RML.Ggen.KnowledgeHooks do
            authority_ceiling: :CONSTRUCT,
            knowledge_hook_plan_sha256: plan.plan_sha256,
            knowledge_hook_spec_bundle_sha256: spec_bundle_sha256,
+           ash_observation_projection_sha256: ash_observation_projection_sha256,
            plan: plan,
            specs: scheduled_specs,
            files: %{
              "generated/knowledge-hooks/plan.json" => plan_json <> "\n",
              "generated/knowledge-hooks/specs.json" => specs_json <> "\n",
+             "generated/knowledge-hooks/ash-observers.json" => ash_json <> "\n",
              "receipts/knowledge-hooks-compilation.json" => receipt_json <> "\n"
            }
          }}

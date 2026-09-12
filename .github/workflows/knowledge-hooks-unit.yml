@@ -17,6 +17,7 @@ on:
       - "priv/ontology/knowledge-hooks.ttl"
       - "priv/shapes/knowledge-hooks.shacl.ttl"
       - "test/knowledge_hooks_test.exs"
+      - "test/knowledge_hook_ash_test.exs"
       - "test/knowledge_hook_spec_test.exs"
       - "test/knowledge_hook_promotion_test.exs"
       - "test/knowledge_hook_vocabulary_test.exs"
@@ -33,6 +34,7 @@ on:
       - "priv/ontology/knowledge-hooks.ttl"
       - "priv/shapes/knowledge-hooks.shacl.ttl"
       - "test/knowledge_hooks_test.exs"
+      - "test/knowledge_hook_ash_test.exs"
       - "test/knowledge_hook_spec_test.exs"
       - "test/knowledge_hook_promotion_test.exs"
       - "test/knowledge_hook_vocabulary_test.exs"
@@ -71,6 +73,7 @@ jobs:
         run: >-
           mix test
           test/knowledge_hooks_test.exs
+          test/knowledge_hook_ash_test.exs
           test/knowledge_hook_spec_test.exs
           test/knowledge_hook_promotion_test.exs
           test/knowledge_hook_vocabulary_test.exs
