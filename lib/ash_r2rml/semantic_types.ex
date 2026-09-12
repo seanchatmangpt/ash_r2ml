@@ -163,7 +163,6 @@ defmodule AshR2RML.SemanticTypes do
       {:ok, %Plan{id: id, types: types, providers: provider_ids, refusals: [], status: :PARTIAL_ALIVE}}
     else
       {:error, refusals} when is_list(refusals) -> {:error, refusals}
-      {:error, refusal} -> {:error, [refusal]}
     end
   end
 
@@ -434,7 +433,6 @@ defmodule AshR2RML.SemanticTypes do
   defp normalize_result({:ok, value}), do: {:ok, value}
   defp normalize_result({:error, reason}), do: {:error, reason}
   defp normalize_result(:error), do: :error
-  defp normalize_result(other), do: {:error, {:unexpected_ash_type_result, other}}
 
   defp semantic_ash_compatible?(%SemanticType{ash_type: expected}, observed) when expected == observed,
     do: true
