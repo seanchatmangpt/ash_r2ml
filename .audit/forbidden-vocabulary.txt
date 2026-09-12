@@ -1,5 +1,0 @@
-# Forbidden graph-database residue audit
-
-content_matches=0
-filename_matches=0
-
