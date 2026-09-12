@@ -15,9 +15,7 @@ defmodule AshR2RML.FrontierEvidenceTest do
     {observations, evaluations, triggers} = native_evidence()
 
     assert {:ok, fragment} =
-             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers,
-               producer_head: @producer_head
-             )
+             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers, producer_head: @producer_head)
 
     assert fragment.schema == "frontier-evidence/v1"
     assert fragment.producer == "ash_r2rml"
@@ -171,9 +169,7 @@ defmodule AshR2RML.FrontierEvidenceTest do
     {observations, evaluations, triggers} = native_evidence()
 
     assert {:error, %Refusal{subject: :producer_head}} =
-             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers,
-               producer_head: "moving-ref"
-             )
+             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers, producer_head: "moving-ref")
 
     assert {:error, %Refusal{detail: detail}} =
              FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers,
@@ -196,9 +192,7 @@ defmodule AshR2RML.FrontierEvidenceTest do
     {observations, evaluations, triggers} = native_evidence()
 
     assert {:ok, fragment} =
-             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers,
-               producer_head: @producer_head
-             )
+             FrontierEvidence.from_knowledge_hooks(observations, evaluations, triggers, producer_head: @producer_head)
 
     assert {:error, %Refusal{detail: detail}} =
              fragment
