@@ -18,6 +18,8 @@ defmodule AshR2RML.Adversarial.SparqlParityTest do
   @tmp_dir Path.expand("tmp/adversarial_sparql_parity")
   @jdbc_jar Path.expand("priv/ontop/jdbc/postgresql-42.7.4.jar")
 
+  @moduletag skip: AshR2RML.Test.DockerInfraCheck.skip_reason()
+
   setup_all do
     File.mkdir_p!(@tmp_dir)
 

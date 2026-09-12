@@ -65,6 +65,8 @@ defmodule AshR2RML.AdversarialClosureTest do
   end
 
   describe "1. Real Ontop OBDA Execution over PostgreSQL" do
+    @describetag skip: AshR2RML.Test.DockerInfraCheck.skip_reason()
+
     test "executes real Ontop in Docker against live PostgreSQL table returning SPARQL SELECT results" do
       tmp_dir = Path.expand("tmp/ontop_adversarial_test")
       File.mkdir_p!(tmp_dir)
