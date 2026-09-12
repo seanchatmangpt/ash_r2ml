@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 ash_r2rml contributors <https://github.com/seanchatmangpt/ash_r2rml/graphs/contributors>
+#
+# SPDX-License-Identifier: MIT
+
+name: R84 Ash Reactor Domain Error Fanout
+
+on:
+  pull_request:
+    paths:
+      - "test/negative/r84_domain_error_contract_test.exs"
+      - ".github/workflows/r84-domain-error-fanout.yml"
+      - "lib/ash_r2rml/reactor/**"
+      - "lib/ash_r2rml/compiler.ex"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  r84-consumer-court:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Admit exact consumer subject
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+
+      - name: Set up exact repository toolchain
+        uses: jdx/mise-action@v2
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Compile warnings-as-errors
+        run: mix compile --force --warnings-as-errors
+
+      - name: Execute R84 typed-refusal consumer court
+        run: mix test test/negative/r84_domain_error_contract_test.exs
