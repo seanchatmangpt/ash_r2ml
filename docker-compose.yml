@@ -3,15 +3,15 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Ephemeral Neo4j control databases used only by the inherited integration
-# and parity suites. Ports and credentials match config/test.exs exactly.
+# Ephemeral integration topology used by inherited Chicago/parity suites.
+# Ports and credentials match config/test.exs and the existing real Ontop
+# fixtures exactly. No persistent volumes are mounted: every CI run rebuilds
+# evidence from a clean database state.
 #
 #   neo4j-bolt5 -> bolt://localhost:7687 / http://localhost:7474
 #   neo4j-bolt6 -> bolt://localhost:7689 / http://localhost:7475
 #   neo4j-apoc  -> bolt://localhost:7691 / http://localhost:7476
-#
-# No persistent volumes are mounted: CI evidence must be replayable from a
-# clean state and tests own their fixtures/rollback semantics.
+#   xaas-db-1   -> PostgreSQL 16, reachable by Ontop on xaas_default
 services:
   neo4j-bolt5:
     image: neo4j:5.26.27
@@ -54,3 +54,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
+
+  xaas-db:
+    image: postgres:16
+    container_name: xaas-db-1
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    networks:
+      - xaas
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+networks:
+  xaas:
+    name: xaas_default
