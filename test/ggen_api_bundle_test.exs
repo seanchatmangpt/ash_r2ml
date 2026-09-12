@@ -58,7 +58,7 @@ defmodule AshR2RML.GgenApiBundleTest do
   end
 
   test "with graphql: false, json_api: false (default), no external protocol extensions are added" do
-    assert {:ok, bundle} = AshR2RML.Ggen.compile_api_bundle(profile("AshR2RML.ApiBundleTest.PlainWidget"))
+    assert {:ok, bundle} = AshR2RML.compile_api_bundle(profile("AshR2RML.ApiBundleTest.PlainWidget"))
     source = bundle.files["generated/ash/api_resources.ex"]
 
     assert is_binary(source)
@@ -71,7 +71,7 @@ defmodule AshR2RML.GgenApiBundleTest do
 
   test "graphql: true emits canonical read-only SDL directly from SemanticIR without AshGraphql" do
     assert {:ok, bundle} =
-             AshR2RML.Ggen.compile_api_bundle(profile("AshR2RML.ApiBundleTest.GraphqlWidget"), graphql: true)
+             AshR2RML.compile_api_bundle(profile("AshR2RML.ApiBundleTest.GraphqlWidget"), graphql: true)
 
     source = bundle.files["generated/ash/api_resources.ex"]
     schema = bundle.files["generated/graphql/schema.graphql"]
@@ -102,7 +102,7 @@ defmodule AshR2RML.GgenApiBundleTest do
 
   test "graphql accepts only a boolean switch and refuses customization" do
     assert {:error, %AshR2RML.Refusal{} = refusal} =
-             AshR2RML.Ggen.compile_api_bundle(profile("AshR2RML.ApiBundleTest.CustomGraphqlWidget"),
+             AshR2RML.compile_api_bundle(profile("AshR2RML.ApiBundleTest.CustomGraphqlWidget"),
                graphql: [type: :custom_widget]
              )
 
@@ -113,8 +113,8 @@ defmodule AshR2RML.GgenApiBundleTest do
   test "main compile bundle and API bundle manufacture the same GraphQL schema from the same O*" do
     profile = profile("AshR2RML.ApiBundleTest.ReplayWidget")
 
-    assert {:ok, full_bundle} = AshR2RML.Ggen.compile_bundle(profile, graphql: true)
-    assert {:ok, api_bundle} = AshR2RML.Ggen.compile_api_bundle(profile, graphql: true)
+    assert {:ok, full_bundle} = AshR2RML.compile_bundle(profile, graphql: true)
+    assert {:ok, api_bundle} = AshR2RML.compile_api_bundle(profile, graphql: true)
 
     assert full_bundle.files["generated/graphql/schema.graphql"] ==
              api_bundle.files["generated/graphql/schema.graphql"]
@@ -125,7 +125,7 @@ defmodule AshR2RML.GgenApiBundleTest do
 
   test "json_api: true retains the pre-existing AshJsonApi projection independently" do
     assert {:ok, bundle} =
-             AshR2RML.Ggen.compile_api_bundle(profile("AshR2RML.ApiBundleTest.JsonApiWidget"), json_api: true)
+             AshR2RML.compile_api_bundle(profile("AshR2RML.ApiBundleTest.JsonApiWidget"), json_api: true)
 
     source = bundle.files["generated/ash/api_resources.ex"]
     assert source =~ "AshJsonApi.Resource"
@@ -140,7 +140,7 @@ defmodule AshR2RML.GgenApiBundleTest do
 
   test "GraphQL read projection composes with custom JSON:API without granting GraphQL writes" do
     assert {:ok, bundle} =
-             AshR2RML.Ggen.compile_api_bundle(profile("AshR2RML.ApiBundleTest.BothWidget"),
+             AshR2RML.compile_api_bundle(profile("AshR2RML.ApiBundleTest.BothWidget"),
                graphql: true,
                json_api: true
              )
