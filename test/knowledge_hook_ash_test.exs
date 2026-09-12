@@ -11,7 +11,7 @@ defmodule AshR2RML.KnowledgeHook.AshTest do
   alias AshR2RML.KnowledgeHooks
   alias AshR2RML.Refusal
 
-  @id "0199-knowledge-hooks-ash-observation"
+  @id "0199a000-0000-7000-8000-000000000001"
 
   test "Ash notifications become deterministic state-change observations and explicit trigger receipts" do
     plan = notification_plan(%{
@@ -190,6 +190,10 @@ defmodule AshR2RML.KnowledgeHook.AshTest do
 
   defp update_changeset do
     before_record = %Organization{id: @id, name: "before", version: "1.0.0"}
-    Ash.Changeset.for_update(before_record, :update, %{name: "after"})
+
+    before_record
+    |> Ash.Changeset.new()
+    |> Ash.Changeset.force_change_attribute(:name, "after")
+    |> Ash.Changeset.for_update(:update, %{})
   end
 end
