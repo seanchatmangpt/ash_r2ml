@@ -78,6 +78,39 @@ defmodule AshR2RML do
   @doc "Execute an explicitly selected or uniquely forced SPARQL execution plan."
   defdelegate execute_sparql(plan), to: AshR2RML.SPARQL, as: :execute
 
+  @doc "Admit normalized Knowledge Hook definitions into a construct-only plan."
+  def admit_knowledge_hooks(definitions, opts \\ []),
+    do: AshR2RML.KnowledgeHooks.admit(definitions, opts)
+
+  @doc "Parse canonical AshR2RML, GitVan, or KNHK Knowledge Hook Turtle into a construct-only plan."
+  def ingest_knowledge_hooks_turtle(turtle, opts \\ []),
+    do: AshR2RML.KnowledgeHook.Ingestion.from_turtle(turtle, opts)
+
+  @doc "Evaluate admitted Knowledge Hooks and construct unauthorized intents for matches."
+  def evaluate_knowledge_hooks(plan, opts \\ []),
+    do: AshR2RML.KnowledgeHooks.evaluate(plan, opts)
+
+  @doc "Compile an admitted Knowledge Hook plan to canonical content-addressed hook IR."
+  def compile_knowledge_hook_specs(plan), do: AshR2RML.KnowledgeHook.Spec.from_plan(plan)
+
+  @doc "Deterministically order canonical Knowledge Hook specs by explicit dependencies."
+  def schedule_knowledge_hook_specs(specs), do: AshR2RML.KnowledgeHook.Scheduler.schedule(specs)
+
+  @doc "Project a constructed Knowledge Hook intent to a typed inert downstream target."
+  def project_knowledge_hook_target(intent), do: AshR2RML.KnowledgeHook.Target.from_intent(intent)
+
+  @doc "Evaluate cognition-to-reflex promotion evidence without granting actuation authority."
+  def evaluate_knowledge_hook_promotion(candidate, evidence, opts \\ []),
+    do: AshR2RML.KnowledgeHook.Promotion.evaluate(candidate, evidence, opts)
+
+  @doc "Manufacture a deterministic ggen path/content bundle for admitted Knowledge Hooks."
+  def compile_knowledge_hooks_bundle(plan_or_definitions, opts \\ []),
+    do: AshR2RML.Ggen.KnowledgeHooks.compile(plan_or_definitions, opts)
+
+  @doc "Parse canonical/legacy Knowledge Hook Turtle and manufacture its deterministic ggen path/content bundle."
+  def compile_knowledge_hooks_turtle_bundle(turtle, opts \\ []),
+    do: AshR2RML.Ggen.KnowledgeHooks.compile_turtle(turtle, opts)
+
   @doc "Render standards-oriented R2RML Turtle from a bundle or Ash resource set."
   defdelegate render(resources_or_bundle), to: AshR2RML.R2RML
 

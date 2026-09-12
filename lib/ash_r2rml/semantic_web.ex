@@ -40,7 +40,9 @@ defmodule AshR2RML.SPARQL.Query do
     end
   end
 
-  @spec admit(String.t() | Elixir.SPARQL.Query.t()) :: {:ok, t()} | {:error, Refusal.t()}
+  @spec admit(t() | String.t() | Elixir.SPARQL.Query.t()) :: {:ok, t()} | {:error, Refusal.t()}
+  def admit(%__MODULE__{} = admitted), do: {:ok, admitted}
+
   def admit(%Elixir.SPARQL.Query{query_string: source} = parsed) when is_binary(source) do
     {:ok,
      %__MODULE__{
@@ -221,7 +223,7 @@ defmodule AshR2RML.SPARQL.Local do
       try do
         result = Elixir.SPARQL.execute_query(data, admitted.parsed)
 
-        with {:ok, result_kind, rows} <- Result.normalize(result) do
+        with {:ok, result_kind, rows} <- normalize_local_result(admitted.form, result) do
           {:ok,
            %Observation{
              strategy: :local_rdf,
@@ -252,6 +254,20 @@ defmodule AshR2RML.SPARQL.Local do
       end
     end
   end
+
+  # SPARQL.ex 0.3.x represents local ASK truth as a solution sequence:
+  # one empty binding for true and an empty sequence for false. Normalize that
+  # engine-specific representation into the same boolean observation contract
+  # used by protocol ASK results before knowledge-hook evaluation sees it.
+  defp normalize_local_result(:ask, result) do
+    case Result.normalize(result) do
+      {:ok, :boolean, _rows} = normalized -> normalized
+      {:ok, :bindings, rows} -> {:ok, :boolean, [%{"ask" => rows != []}]}
+      other -> other
+    end
+  end
+
+  defp normalize_local_result(_form, result), do: Result.normalize(result)
 end
 
 defmodule AshR2RML.SPARQL.Protocol do
