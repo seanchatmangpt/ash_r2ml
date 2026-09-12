@@ -8,60 +8,30 @@ defmodule AshR2RML.Semantic.GraphQL do
 
   GraphQL is a protocol switch, not an authoring surface. `false` emits nothing;
   `true` manufactures one canonical SDL schema plus a semantic manifest directly
-  from the admitted IR. There are deliberately no field renames, resolver
-  overrides, per-resource exposure switches, mutations, subscriptions, custom
-  arguments, or GraphQL-specific authorization rules.
+  from the admitted IR. There are no field renames, resolver overrides,
+  per-resource exposure switches, mutations, subscriptions, custom arguments,
+  or GraphQL-specific authorization rules.
 
-  Applications that need a curated/custom GraphQL product API should use
-  `ash_graphql`. This module exists so the semantic plane can expose a stable
-  graph-shaped read projection without creating a second configuration or write
-  authority plane.
-
-  The generated schema is CONSTRUCT output only. Serving it and resolving reads
-  remain runtime concerns. No generated GraphQL surface can mutate canonical or
-  foreign state; consequence-bearing operations must re-enter through the
-  authorized action/BRCE path.
+  Use `ash_graphql` when a curated/custom GraphQL application API is required.
+  This projection is CONSTRUCT-only and grants no DO authority.
   """
 
   alias AshR2RML.{Refusal, SemanticIR}
   alias AshR2RML.SemanticIR.{Attribute, Relationship, Resource}
 
   @canonical_limit 100
-  @reserved_type_names MapSet.new([
-                         "Query",
-                         "Mutation",
-                         "Subscription",
-                         "String",
-                         "Int",
-                         "Float",
-                         "Boolean",
-                         "ID",
-                         "BigInt",
-                         "Date",
-                         "DateTime",
-                         "Decimal",
-                         "JSON"
-                       ])
+  @custom_scalars ~w(BigInt Date DateTime Decimal JSON)
+  @reserved_types MapSet.new(~w(Query Mutation Subscription String Int Float Boolean ID BigInt Date DateTime Decimal JSON))
 
-  @type projection :: %{
-          schema: String.t(),
-          manifest: map(),
-          receipt: map()
-        }
+  @type projection :: %{schema: String.t(), manifest: map(), receipt: map()}
 
-  @spec compile(SemanticIR.t(), boolean()) ::
-          {:ok, projection() | nil} | {:error, Refusal.t()}
+  @spec compile(SemanticIR.t(), boolean()) :: {:ok, projection() | nil} | {:error, Refusal.t()}
   def compile(%SemanticIR{}, false), do: {:ok, nil}
 
   def compile(%SemanticIR{} = ir, true) do
     resources = Enum.sort_by(ir.resources, & &1.class_iri)
     type_names = allocate_type_names(resources)
-
-    descriptors =
-      Enum.map(resources, fn resource ->
-        describe_resource(resource, type_names)
-      end)
-
+    descriptors = Enum.map(resources, &describe_resource(&1, type_names))
     schema = render_schema(descriptors)
     schema_sha256 = sha256(schema)
 
@@ -116,19 +86,18 @@ defmodule AshR2RML.Semantic.GraphQL do
   defp describe_resource(%Resource{} = resource, type_names) do
     type_name = Map.fetch!(type_names, resource.class_iri)
 
-    {fields, _used} =
+    {attribute_fields, used} =
       Enum.reduce(resource.attributes, {[], MapSet.new(["iri"])}, fn attribute, {fields, used} ->
         field = attribute_field(attribute, used)
         {[field | fields], MapSet.put(used, field.name)}
       end)
 
     {fields, _used} =
-      Enum.reduce(resource.relationships, {fields, field_names(fields)}, fn relationship, {fields, used} ->
+      Enum.reduce(resource.relationships, {attribute_fields, used}, fn relationship, {fields, used} ->
         field = relationship_field(relationship, type_names, used)
         {[field | fields], MapSet.put(used, field.name)}
       end)
 
-    fields = Enum.sort_by(fields, & &1.name)
     query_name = graphql_field_name(type_name)
 
     %{
@@ -137,13 +106,12 @@ defmodule AshR2RML.Semantic.GraphQL do
       type_name: type_name,
       query_name: query_name,
       list_query_name: query_name <> "_list",
-      fields: fields
+      fields: Enum.sort_by(fields, & &1.name)
     }
   end
 
   defp attribute_field(%Attribute{} = attribute, used) do
-    base = attribute.predicate_iri |> iri_local_name() |> graphql_field_name()
-    name = unique_name(base, attribute.predicate_iri, used)
+    name = semantic_field_name(attribute.predicate_iri, used)
 
     %{
       name: name,
@@ -155,8 +123,7 @@ defmodule AshR2RML.Semantic.GraphQL do
   end
 
   defp relationship_field(%Relationship{} = relationship, type_names, used) do
-    base = relationship.predicate_iri |> iri_local_name() |> graphql_field_name()
-    name = unique_name(base, relationship.predicate_iri, used)
+    name = semantic_field_name(relationship.predicate_iri, used)
     target_type = Map.fetch!(type_names, relationship.target_class)
 
     %{
@@ -168,16 +135,23 @@ defmodule AshR2RML.Semantic.GraphQL do
     }
   end
 
+  defp semantic_field_name(predicate_iri, used) do
+    predicate_iri
+    |> iri_local_name()
+    |> graphql_field_name()
+    |> unique_name(predicate_iri, used)
+  end
+
   defp render_schema(descriptors) do
-    scalar_names =
+    scalars =
       descriptors
       |> Enum.flat_map(& &1.fields)
-      |> Enum.map(&base_type/1)
-      |> Enum.filter(&(&1 in ["BigInt", "Date", "DateTime", "Decimal", "JSON"]))
+      |> Enum.map(&base_type(&1.graphql_type))
+      |> Enum.filter(&(&1 in @custom_scalars))
       |> Enum.uniq()
       |> Enum.sort()
+      |> Enum.map(&"scalar #{&1}")
 
-    scalars = Enum.map(scalar_names, &"scalar #{&1}")
     types = Enum.map(descriptors, &render_type/1)
     query = render_query(descriptors)
 
@@ -189,7 +163,7 @@ defmodule AshR2RML.Semantic.GraphQL do
   defp render_type(descriptor) do
     fields =
       [%{name: "iri", graphql_type: "ID!"} | descriptor.fields]
-      |> Enum.map_join("\n", fn field -> "  #{field.name}: #{field.graphql_type}" end)
+      |> Enum.map_join("\n", &"  #{&1.name}: #{&1.graphql_type}")
 
     "type #{descriptor.type_name} {\n#{fields}\n}"
   end
@@ -198,8 +172,7 @@ defmodule AshR2RML.Semantic.GraphQL do
 
   defp render_query(descriptors) do
     body =
-      descriptors
-      |> Enum.flat_map(fn descriptor ->
+      Enum.flat_map(descriptors, fn descriptor ->
         [
           "  #{descriptor.query_name}(iri: ID!): #{descriptor.type_name}",
           "  #{descriptor.list_query_name}(limit: Int = #{@canonical_limit}, offset: Int = 0): [#{descriptor.type_name}!]!"
@@ -239,29 +212,17 @@ defmodule AshR2RML.Semantic.GraphQL do
     |> elem(0)
   end
 
-  defp field_names(fields), do: fields |> Enum.map(& &1.name) |> MapSet.new() |> MapSet.put("iri")
-
-  defp unique_name(base, semantic_iri, used), do: unique_name(base, semantic_iri, used, 0)
-
-  defp unique_name(base, _semantic_iri, used, 0) when not is_map_key(used, base) do
-    if MapSet.member?(used, base), do: nil, else: base
+  defp unique_name(base, semantic_iri, used) do
+    if MapSet.member?(used, base), do: unique_suffix(base, semantic_iri, used, 0), else: base
   end
 
-  defp unique_name(base, semantic_iri, used, attempt) do
+  defp unique_suffix(base, semantic_iri, used, attempt) do
     candidate = base <> "_" <> String.slice(sha256("#{semantic_iri}:#{attempt}"), 0, 8)
-
-    if MapSet.member?(used, candidate) do
-      unique_name(base, semantic_iri, used, attempt + 1)
-    else
-      candidate
-    end
+    if MapSet.member?(used, candidate), do: unique_suffix(base, semantic_iri, used, attempt + 1), else: candidate
   end
 
   defp iri_local_name(value) when is_binary(value) do
-    value
-    |> String.split(["#", "/", ":"], trim: true)
-    |> List.last()
-    |> case do
+    case value |> String.split(["#", "/", ":"], trim: true) |> List.last() do
       nil -> "SemanticValue"
       "" -> "SemanticValue"
       local -> local
@@ -269,40 +230,23 @@ defmodule AshR2RML.Semantic.GraphQL do
   end
 
   defp graphql_type_name(value) do
-    value
-    |> sanitize_name()
-    |> Macro.camelize()
-    |> ensure_graphql_name("T")
-    |> avoid_reserved_type()
+    name = value |> sanitize_name() |> Macro.camelize() |> ensure_graphql_name("T")
+    if MapSet.member?(@reserved_types, name), do: "Semantic" <> name, else: name
   end
 
   defp graphql_field_name(value) do
-    value
-    |> sanitize_name()
-    |> Macro.underscore()
-    |> ensure_graphql_name("f_")
+    value |> sanitize_name() |> Macro.underscore() |> ensure_graphql_name("f_")
   end
 
   defp sanitize_name(value) do
-    value
-    |> to_string()
-    |> String.replace(~r/[^A-Za-z0-9_]+/u, "_")
-    |> String.trim("_")
-    |> case do
+    case value |> to_string() |> String.replace(~r/[^A-Za-z0-9_]+/u, "_") |> String.trim("_") do
       "" -> "semantic_value"
       sanitized -> sanitized
     end
   end
 
   defp ensure_graphql_name("__" <> _ = value, prefix), do: prefix <> value
-
-  defp ensure_graphql_name(value, prefix) do
-    if Regex.match?(~r/^[A-Za-z_]/, value), do: value, else: prefix <> value
-  end
-
-  defp avoid_reserved_type(value) do
-    if MapSet.member?(@reserved_type_names, value), do: "Semantic" <> value, else: value
-  end
+  defp ensure_graphql_name(value, prefix), do: if(Regex.match?(~r/^[A-Za-z_]/, value), do: value, else: prefix <> value)
 
   defp attribute_graphql_type(%Attribute{identity?: true}), do: "ID"
   defp attribute_graphql_type(%Attribute{ash_type: :uuid}), do: "ID"
@@ -315,18 +259,13 @@ defmodule AshR2RML.Semantic.GraphQL do
   defp attribute_graphql_type(%Attribute{ash_type: :string}), do: "String"
   defp attribute_graphql_type(_), do: "JSON"
 
-  defp cardinality_type(type, min_count, 1) do
-    if min_count > 0, do: type <> "!", else: type
-  end
+  defp cardinality_type(type, min_count, 1), do: if(min_count > 0, do: type <> "!", else: type)
 
   defp cardinality_type(type, min_count, _max_count) do
     list = "[#{type}!]"
     if min_count > 0, do: list <> "!", else: list
   end
 
-  defp base_type(%{graphql_type: graphql_type}) do
-    String.replace(graphql_type, ~r/[\[\]!]/, "")
-  end
-
+  defp base_type(graphql_type), do: String.replace(graphql_type, ~r/[\[\]!]/, "")
   defp sha256(value), do: :crypto.hash(:sha256, value) |> Base.encode16(case: :lower)
 end
