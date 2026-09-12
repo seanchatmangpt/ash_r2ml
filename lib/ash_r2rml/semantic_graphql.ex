@@ -12,6 +12,11 @@ defmodule AshR2RML.Semantic.GraphQL do
   per-resource exposure switches, mutations, subscriptions, custom arguments,
   or GraphQL-specific authorization rules.
 
+  DfCM is preserved at the runtime boundary: this compiler does not choose or
+  own a query-serving backend. It manufactures a collision-safe read contract;
+  runtime execution remains an external consumer choice and carries no ambient
+  authority from this projection.
+
   Use `ash_graphql` when a curated/custom GraphQL application API is required.
   This projection is CONSTRUCT-only and grants no DO authority.
   """
@@ -31,7 +36,8 @@ defmodule AshR2RML.Semantic.GraphQL do
   def compile(%SemanticIR{} = ir, true) do
     resources = Enum.sort_by(ir.resources, & &1.class_iri)
     type_names = allocate_type_names(resources)
-    descriptors = Enum.map(resources, &describe_resource(&1, type_names))
+    query_names = allocate_query_names(resources, type_names)
+    descriptors = Enum.map(resources, &describe_resource(&1, type_names, query_names))
     schema = render_schema(descriptors)
     schema_sha256 = sha256(schema)
 
@@ -45,6 +51,8 @@ defmodule AshR2RML.Semantic.GraphQL do
       subscription_root: false,
       customization: :unsupported_use_ash_graphql,
       consequence_path: :brce,
+      runtime_execution: :external,
+      backend_selection: :unselected,
       ontology_hash: ir.ontology_hash,
       profile_hash: ir.profile_hash,
       shacl_hash: ir.shacl_hash,
@@ -66,7 +74,8 @@ defmodule AshR2RML.Semantic.GraphQL do
       authority: :none,
       executed: [],
       verified: [:deterministic_projection],
-      blocked: [:runtime_query_execution],
+      blocked: [],
+      unsupported: [:runtime_query_execution],
       refusals: []
     }
 
@@ -83,8 +92,9 @@ defmodule AshR2RML.Semantic.GraphQL do
      )}
   end
 
-  defp describe_resource(%Resource{} = resource, type_names) do
+  defp describe_resource(%Resource{} = resource, type_names, query_names) do
     type_name = Map.fetch!(type_names, resource.class_iri)
+    {query_name, list_query_name} = Map.fetch!(query_names, resource.class_iri)
 
     {attribute_fields, used} =
       Enum.reduce(resource.attributes, {[], MapSet.new(["iri"])}, fn attribute, {fields, used} ->
@@ -98,14 +108,12 @@ defmodule AshR2RML.Semantic.GraphQL do
         {[field | fields], MapSet.put(used, field.name)}
       end)
 
-    query_name = graphql_field_name(type_name)
-
     %{
       class_iri: resource.class_iri,
       shape_iri: resource.shape_iri,
       type_name: type_name,
       query_name: query_name,
-      list_query_name: query_name <> "_list",
+      list_query_name: list_query_name,
       fields: Enum.sort_by(fields, & &1.name)
     }
   end
@@ -210,6 +218,22 @@ defmodule AshR2RML.Semantic.GraphQL do
       {Map.put(names, resource.class_iri, name), MapSet.put(used, name)}
     end)
     |> elem(0)
+  end
+
+  defp allocate_query_names(resources, type_names) do
+    Enum.reduce(resources, {%{}, MapSet.new()}, fn resource, {names, used} ->
+      base = type_names |> Map.fetch!(resource.class_iri) |> graphql_field_name()
+      {query_name, used} = allocate_root_name(base, resource.class_iri <> "#query", used)
+      {list_query_name, used} = allocate_root_name(base <> "_list", resource.class_iri <> "#list", used)
+
+      {Map.put(names, resource.class_iri, {query_name, list_query_name}), used}
+    end)
+    |> elem(0)
+  end
+
+  defp allocate_root_name(base, semantic_key, used) do
+    name = unique_name(base, semantic_key, used)
+    {name, MapSet.put(used, name)}
   end
 
   defp unique_name(base, semantic_iri, used) do
