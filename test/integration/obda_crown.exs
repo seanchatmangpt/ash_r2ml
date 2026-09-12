@@ -126,19 +126,34 @@ defmodule AshR2RML.ObdaCrown do
     {:ok, admitted_query} = AshR2RML.admit_sparql(@sparql)
     unless admitted_query.form == :select, do: raise("SPARQL.ex did not admit crown SELECT query")
 
-    {:ok, compilation} = AshR2RML.compile_turtle(@profile, ontology_hash: sha256(@profile))
+    ontology_hash = sha256(@profile)
+
+    # The public ontology-first API intentionally returns the canonical mapping
+    # bundle. The full compiler produces additional executable projections and
+    # a receipt from the same admitted profile. Verify those two boundaries are
+    # identical instead of assuming the public bundle is a Compilation struct.
+    {:ok, turtle_bundle} = AshR2RML.compile_turtle(@profile, ontology_hash: ontology_hash)
+    {:ok, turtle_r2rml} = AshR2RML.R2RML.render(turtle_bundle)
+    {:ok, profile} = AshR2RML.ingest_turtle(@profile, ontology_hash: ontology_hash)
+    {:ok, compilation} = AshR2RML.Compiler.compile(profile)
+
+    unless compilation.mapping_bundle == turtle_bundle,
+      do: raise("public Turtle bundle diverged from full ontology-first compilation")
+
+    unless compilation.r2rml == turtle_r2rml,
+      do: raise("Turtle mapping bundle renderer diverged from full compilation")
 
     # The exact same RDF/SHACL subject must survive a JSON-LD serialization round-trip.
     profile_graph = RDF.Turtle.read_string!(@profile)
     {:ok, profile_jsonld} = AshR2RML.JSONLD.encode_rdf(profile_graph, pretty: false)
-    {:ok, jsonld_bundle} = AshR2RML.compile_jsonld(profile_jsonld, ontology_hash: sha256(@profile))
+    {:ok, jsonld_bundle} = AshR2RML.compile_jsonld(profile_jsonld, ontology_hash: ontology_hash)
     {:ok, jsonld_r2rml} = AshR2RML.R2RML.render(jsonld_bundle)
 
     unless jsonld_r2rml == compilation.r2rml,
       do: raise("Turtle/JSON-LD mapping manufacture diverged")
 
     {:ok, jsonld_ggen_bundle} =
-      AshR2RML.Ggen.compile_jsonld_bundle(profile_jsonld, ontology_hash: sha256(@profile))
+      AshR2RML.Ggen.compile_jsonld_bundle(profile_jsonld, ontology_hash: ontology_hash)
 
     unless jsonld_ggen_bundle.files["priv/r2rml/mapping.ttl"] == compilation.r2rml,
       do: raise("ggen JSON-LD input path diverged from Turtle mapping manufacture")

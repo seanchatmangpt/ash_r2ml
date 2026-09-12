@@ -48,6 +48,15 @@ defmodule AshR2RML.Dsl.SparqlQuery do
   @moduledoc false
   @enforce_keys [:name]
   defstruct [:name, form: :select, select: [], where: [], __identifier__: nil, __spark_metadata__: nil]
+
+  @type t :: %__MODULE__{
+          name: atom(),
+          form: :select | :construct | :ask | :describe,
+          select: [atom()],
+          where: term(),
+          __identifier__: term(),
+          __spark_metadata__: term()
+        }
 end
 
 defmodule AshR2RML.Dsl.Graph do
@@ -643,14 +652,16 @@ defmodule AshR2RML.Resource.LegacyAdapter do
     end
   end
 
-  defp spark_resource?(resource) when is_atom(resource) do
-    function_exported?(resource, :spark_is, 0) or
-      not is_nil(Spark.Dsl.Extension.get_persisted(resource, :spark_dsl, nil))
+  defp spark_resource?(resource) do
+    if is_atom(resource) do
+      function_exported?(resource, :spark_is, 0) or
+        not is_nil(Spark.Dsl.Extension.get_persisted(resource, :spark_dsl, nil))
+    else
+      false
+    end
   rescue
     _ -> false
   end
-
-  defp spark_resource?(_), do: false
 
   defp safe_spark_opt(resource, path, key) do
     Spark.Dsl.Extension.get_opt(resource, path, key, nil)

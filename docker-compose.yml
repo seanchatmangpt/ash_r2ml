@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: 2025 ash_neo4j contributors <https://github.com/diffo-dev/ash_neo4j/graphs/contributors>
+# SPDX-FileCopyrightText: 2026 ash_r2rml contributors <https://github.com/seanchatmangpt/ash_r2rml/graphs/contributors>
+#
+# SPDX-License-Identifier: MIT
+
+# Ephemeral integration topology used by inherited Chicago/parity suites.
+# Ports and credentials match config/test.exs and the existing real Ontop
+# fixtures exactly. No persistent volumes are mounted: every CI run rebuilds
+# evidence from a clean database state.
+#
+#   neo4j-bolt5 -> bolt://localhost:7687 / http://localhost:7474
+#   neo4j-bolt6 -> bolt://localhost:7689 / http://localhost:7475
+#   neo4j-apoc  -> bolt://localhost:7691 / http://localhost:7476
+#   xaas-db-1   -> PostgreSQL 16, reachable by Ontop on xaas_default
+services:
+  neo4j-bolt5:
+    image: neo4j:5.26.27
+    ports:
+      - "7687:7687"
+      - "7474:7474"
+    environment:
+      NEO4J_AUTH: neo4j/password
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p password 'RETURN 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  neo4j-bolt6:
+    # Pin the exact UBI build instead of a floating year/month tag so the
+    # Cypher-25/Bolt-6 evidence cannot drift underneath an unchanged commit.
+    image: neo4j:2026.05.0-community-ubi10
+    ports:
+      - "7689:7687"
+      - "7475:7474"
+    environment:
+      NEO4J_AUTH: neo4j/password
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p password 'RETURN 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  neo4j-apoc:
+    image: neo4j:5.26.27
+    ports:
+      - "7691:7687"
+      - "7476:7474"
+    environment:
+      NEO4J_AUTH: neo4j/password
+      NEO4J_PLUGINS: '["apoc"]'
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p password 'RETURN apoc.version()' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  xaas-db:
+    image: postgres:16
+    container_name: xaas-db-1
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    networks:
+      - xaas
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+networks:
+  xaas:
+    name: xaas_default
