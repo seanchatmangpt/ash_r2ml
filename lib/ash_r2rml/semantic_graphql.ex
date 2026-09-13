@@ -17,6 +17,11 @@ defmodule AshR2RML.Semantic.GraphQL do
   runtime execution remains an external consumer choice and carries no ambient
   authority from this projection.
 
+  Actions and authorization policies are preserved as manifest obligations but
+  are deliberately not projected into GraphQL execution. This prevents a
+  read-protocol projection from silently erasing incumbent consequence or policy
+  semantics while keeping all enforcement and DO authority outside this plane.
+
   Use `ash_graphql` when a curated/custom GraphQL application API is required.
   This projection is CONSTRUCT-only and grants no DO authority.
   """
@@ -49,8 +54,11 @@ defmodule AshR2RML.Semantic.GraphQL do
       canonical_limit: @canonical_limit,
       mutation_root: false,
       subscription_root: false,
+      action_projection: false,
+      authority: :none,
       customization: :unsupported_use_ash_graphql,
       consequence_path: :brce,
+      policy_enforcement: :external,
       runtime_execution: :external,
       backend_selection: :unselected,
       ontology_hash: ir.ontology_hash,
@@ -71,11 +79,15 @@ defmodule AshR2RML.Semantic.GraphQL do
       schema_sha256: schema_sha256,
       mutation_root: false,
       subscription_root: false,
+      action_projection: false,
+      policy_enforcement: :external,
       authority: :none,
+      observed: [],
       executed: [],
-      verified: [:deterministic_projection],
+      verified: [],
+      declared: [:deterministic_projection, :query_only, :no_do_authority],
       blocked: [],
-      unsupported: [:runtime_query_execution],
+      unsupported: [:runtime_query_execution, :runtime_policy_enforcement],
       refusals: []
     }
 
@@ -114,7 +126,9 @@ defmodule AshR2RML.Semantic.GraphQL do
       type_name: type_name,
       query_name: query_name,
       list_query_name: list_query_name,
-      fields: Enum.sort_by(fields, & &1.name)
+      fields: Enum.sort_by(fields, & &1.name),
+      actions: Enum.sort_by(resource.actions, &{to_string(&1.name), to_string(&1.kind)}),
+      policies: Enum.sort_by(resource.policies, &{to_string(&1.name), to_string(&1.effect)})
     }
   end
 
@@ -207,7 +221,28 @@ defmodule AshR2RML.Semantic.GraphQL do
             predicate_iri: field.predicate_iri,
             target_class: field.target_class
           }
-        end)
+        end),
+      excluded_consequence_actions: Enum.map(descriptor.actions, &manifest_action/1),
+      policy_obligations: Enum.map(descriptor.policies, &manifest_policy/1)
+    }
+  end
+
+  defp manifest_action(action) do
+    %{
+      name: action.name,
+      kind: action.kind,
+      projected: false,
+      consequence_path: :brce
+    }
+  end
+
+  defp manifest_policy(policy) do
+    %{
+      name: policy.name,
+      effect: policy.effect,
+      odrl_iri: policy.odrl_iri,
+      enforcement: :external,
+      source: :semantic_ir
     }
   end
 
