@@ -122,3 +122,4 @@ $RECYCLE.BIN/
 # agent related
 .claude
 *.tar
+.discarded-knowledge-hook-duplicate/
