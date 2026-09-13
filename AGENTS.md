@@ -81,6 +81,17 @@ All compilation surfaces converge on: `AshR2RML.Mapping.{Resource, SubjectMap,
 PredicateObjectMap, ReferenceObjectMap, JoinCondition, Datatype, GraphMap}`,
 `AshR2RML.SemanticType{, .Plan}`.
 
+**Naming note**: `AshR2RML.SemanticIR` (`lib/ash_r2rml/semantic_ir.ex`) is the real
+ontology-first admitted compilation object — `ontology_hash`/`profile_hash`/`shacl_hash`
+plus `Identity`/`Attribute`/`Relationship`/`Action`/`Policy`/`Resource` submodules —
+sitting **upstream** of `AshR2RML.Mapping` in the ontology-first path shown above
+(`RDF/OWL/... → SemanticIR → generated Ash.Resource → AshR2RML.Mapping (IR) → projections`).
+It is not a synonym for `AshR2RML.Mapping`; the two are distinct, both-real stages of one
+pipeline. Anyone reading external material that calls "SemanticIR" the single canonical
+intermediate representation for the whole `Ash → projections` pipeline should read that as
+this two-stage reality: `AshR2RML.SemanticIR` for the ontology-first admitted object,
+`AshR2RML.Mapping` for the Ash-first/general mapping IR every compilation surface converges on.
+
 ### Core semantic correspondences
 
 | Construct | Ash | Relational DB | W3C R2RML |
