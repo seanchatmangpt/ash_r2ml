@@ -87,7 +87,7 @@ defmodule AshR2RML.Semantic.GraphQL do
       verified: [],
       declared: [:deterministic_projection, :query_only, :no_do_authority],
       blocked: [],
-      unsupported: [:runtime_query_execution, :runtime_policy_enforcement],
+      unsupported: [:runtime_query_execution],
       refusals: []
     }
 
