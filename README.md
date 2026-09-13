@@ -369,6 +369,31 @@ UNSUPPORTED_ASH_TYPE
 
 The exact Elixir error is a typed AshR2RML/Spark error. No mapping path silently drops a resource, attribute, relationship, or identity.
 
+## Knowledge hooks
+
+`AshR2RML.KnowledgeHooks` admits a read-only predicate over the graph, evaluates it against
+real data, and constructs a downstream `Intent` — hooks manufacture intents, they never
+actuate. Six predicate types are supported:
+
+```text
+:ask               — SPARQL ASK query truth value
+:result_delta      — change between successive SELECT result sets
+:external_trigger  — an externally-supplied receipt (no in-repo query)
+:shacl             — SHACL shape conformance for one or more focus nodes
+:threshold         — a bound SPARQL variable compared against a numeric bound
+:count             — row count of a SELECT query compared against a numeric bound
+```
+
+`:shacl`, `:threshold`, and `:count` each fail closed at admission time on malformed input
+(an unparseable shapes graph or empty focus set, an unsupported comparator atom, or a
+non-`SELECT` query form, respectively) — see `AGENTS.md`'s "Knowledge hooks" section for the
+exact refusal codes.
+
+Two predicate types are explicitly open, not-yet-designed extensions: `:temporal_window`
+(windowed evaluation over a time range) and `:datalog` (a predicate expressed as Datalog
+rules). Neither has admission rules, evaluation semantics, or a receipt shape defined yet —
+this is a named gap, not an oversight.
+
 ## Virtual RDF, not RDF synchronization
 
 AshR2RML generates mappings; an OBDA engine executes SPARQL against the relational database.

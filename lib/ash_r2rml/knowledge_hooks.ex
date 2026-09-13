@@ -6,13 +6,30 @@ defmodule AshR2RML.KnowledgeHook.Predicate do
   @moduledoc "Read-only predicate admitted for a knowledge hook."
 
   @enforce_keys [:type]
-  defstruct [:type, :query, :query_sha256, :query_form]
+  defstruct [
+    :type,
+    :query,
+    :query_sha256,
+    :query_form,
+    :shapes_graph,
+    :shapes_graph_sha256,
+    :focus,
+    :comparator,
+    :bound,
+    :variable
+  ]
 
   @type t :: %__MODULE__{
-          type: :ask | :result_delta | :external_trigger,
+          type: :ask | :result_delta | :external_trigger | :shacl | :threshold | :count,
           query: AshR2RML.SPARQL.Query.t() | nil,
           query_sha256: String.t() | nil,
-          query_form: atom() | nil
+          query_form: atom() | nil,
+          shapes_graph: RDF.Graph.t() | nil,
+          shapes_graph_sha256: String.t() | nil,
+          focus: String.t() | [String.t()] | nil,
+          comparator: :gt | :gte | :lt | :lte | :eq | nil,
+          bound: number() | nil,
+          variable: String.t() | nil
         }
 end
 
@@ -138,7 +155,7 @@ defmodule AshR2RML.KnowledgeHooks do
   authority inside AshR2RML.
   """
 
-  alias AshR2RML.KnowledgeHook.{Definition, Evaluation, EvaluationReceipt, Intent, Plan, Predicate}
+  alias AshR2RML.KnowledgeHook.{Definition, Evaluation, EvaluationReceipt, Intent, Plan, Predicate, SHACL}
   alias AshR2RML.{Compiler, Refusal}
 
   @rdf_type "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
@@ -432,13 +449,22 @@ defmodule AshR2RML.KnowledgeHooks do
            }}
         end
 
+      :shacl ->
+        normalize_shacl_predicate(raw, id)
+
+      type when type in [:threshold, :count] ->
+        normalize_bound_predicate(type, raw, query, id)
+
       _ ->
         {:error,
          Refusal.new(
            :REFUSED_UNSUPPORTED_SPARQL_FEATURE,
            id,
            "unsupported knowledge-hook predicate type",
-           %{predicate_type: get(raw, :type), supported: [:ask, :result_delta, :external_trigger]}
+           %{
+             predicate_type: get(raw, :type),
+             supported: [:ask, :result_delta, :external_trigger, :shacl, :threshold, :count]
+           }
          )}
     end
   end
@@ -459,6 +485,8 @@ defmodule AshR2RML.KnowledgeHooks do
        when form in [:select, :ask, :construct, :describe],
        do: :ok
 
+  defp verify_query_form(type, %{form: :select}, _id) when type in [:threshold, :count], do: :ok
+
   defp verify_query_form(type, admitted, id) do
     {:error,
      Refusal.new(
@@ -466,6 +494,105 @@ defmodule AshR2RML.KnowledgeHooks do
        id,
        "predicate/query form mismatch",
        %{predicate_type: type, query_form: admitted.form}
+     )}
+  end
+
+  defp normalize_shacl_predicate(raw, id) do
+    shapes_graph = get(raw, :shapes_graph)
+    focus = get(raw, :focus)
+
+    with {:ok, admitted_graph} <- SHACL.admit_shapes_graph(shapes_graph),
+         {:ok, normalized_focus} <- normalize_shacl_focus(focus, id) do
+      {:ok,
+       %Predicate{
+         type: :shacl,
+         shapes_graph: admitted_graph,
+         shapes_graph_sha256: Compiler.sha256(RDF.Turtle.write_string!(admitted_graph)),
+         focus: normalized_focus
+       }}
+    end
+  end
+
+  defp normalize_shacl_focus(focus, _id) when is_binary(focus) and focus != "", do: {:ok, [focus]}
+
+  defp normalize_shacl_focus(focus, _id) when is_list(focus) and focus != [] do
+    if Enum.all?(focus, &(is_binary(&1) and &1 != "")) do
+      {:ok, focus}
+    else
+      {:error,
+       Refusal.new(
+         :REFUSED_INVALID_SHACL_SHAPES_GRAPH,
+         :shacl_predicate,
+         "SHACL predicate focus must be an IRI string or list of IRI strings",
+         %{focus: inspect(focus)}
+       )}
+    end
+  end
+
+  defp normalize_shacl_focus(focus, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_SHACL_SHAPES_GRAPH,
+       id,
+       "SHACL predicate requires a non-empty focus IRI (or list of IRIs)",
+       %{got: inspect(focus)}
+     )}
+  end
+
+  defp normalize_bound_predicate(type, raw, query, id) do
+    comparator = normalize_comparator(get(raw, :comparator))
+    bound = get(raw, :bound)
+    variable = get(raw, :variable)
+
+    with {:ok, admitted} <- AshR2RML.SPARQL.Query.admit(query),
+         :ok <- verify_query_form(type, admitted, id),
+         :ok <- verify_bound(type, comparator, bound, id) do
+      {:ok,
+       %Predicate{
+         type: type,
+         query: admitted,
+         query_sha256: admitted.sha256,
+         query_form: admitted.form,
+         comparator: comparator,
+         bound: bound,
+         variable: variable && to_string(variable)
+       }}
+    end
+  end
+
+  defp normalize_comparator(comparator) when comparator in [:gt, :gte, :lt, :lte, :eq], do: comparator
+  defp normalize_comparator(">"), do: :gt
+  defp normalize_comparator(">="), do: :gte
+  defp normalize_comparator("<"), do: :lt
+  defp normalize_comparator("<="), do: :lte
+  defp normalize_comparator("=="), do: :eq
+  defp normalize_comparator("="), do: :eq
+  defp normalize_comparator("gt"), do: :gt
+  defp normalize_comparator("gte"), do: :gte
+  defp normalize_comparator("lt"), do: :lt
+  defp normalize_comparator("lte"), do: :lte
+  defp normalize_comparator("eq"), do: :eq
+  defp normalize_comparator(_), do: :unsupported
+
+  defp verify_bound(_type, :unsupported, _bound, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_BOUND_PREDICATE,
+       id,
+       "bound predicate requires a supported comparator",
+       %{supported: [:gt, :gte, :lt, :lte, :eq]}
+     )}
+  end
+
+  defp verify_bound(_type, _comparator, bound, _id) when is_number(bound), do: :ok
+
+  defp verify_bound(type, _comparator, bound, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_BOUND_PREDICATE,
+       id,
+       "#{type} predicate requires a numeric bound",
+       %{got: inspect(bound)}
      )}
   end
 
@@ -571,6 +698,123 @@ defmodule AshR2RML.KnowledgeHooks do
       build_evaluation(hook, plan_sha256, matched?, [], get(witness, :receipt_sha256))
     end
   end
+
+  defp evaluate_hook(%Definition{predicate: %Predicate{type: :shacl} = predicate} = hook, plan_sha256, opts) do
+    data = shacl_data(opts)
+
+    with {:ok, matched?, _violations} <- SHACL.conforms(predicate.shapes_graph, data, predicate.focus) do
+      build_evaluation(hook, plan_sha256, matched?, [], nil)
+    end
+  end
+
+  defp evaluate_hook(
+         %Definition{predicate: %Predicate{type: type} = predicate} = hook,
+         plan_sha256,
+         opts
+       )
+       when type in [:threshold, :count] do
+    with {:ok, observation} <- execute_query(predicate.query, current_opts(opts)),
+         {:ok, matched?} <- bound_result(type, predicate, observation, hook.id) do
+      build_evaluation(hook, plan_sha256, matched?, [observation], nil)
+    end
+  end
+
+  defp shacl_data(opts) do
+    opts |> current_opts() |> Keyword.get(:data, RDF.Graph.new())
+  end
+
+  defp bound_result(:threshold, predicate, %{result_kind: :bindings, rows: rows}, id) do
+    with {:ok, value} <- threshold_value(rows, predicate.variable, id) do
+      {:ok, compare(value, predicate.comparator, predicate.bound)}
+    end
+  end
+
+  defp bound_result(:threshold, _predicate, observation, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_BOUND_PREDICATE,
+       id,
+       "threshold knowledge-hook predicate requires a SELECT binding result",
+       %{result_kind: observation.result_kind}
+     )}
+  end
+
+  defp bound_result(:count, predicate, %{result_kind: :bindings, rows: rows}, _id) do
+    {:ok, compare(length(rows), predicate.comparator, predicate.bound)}
+  end
+
+  defp bound_result(:count, _predicate, observation, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_BOUND_PREDICATE,
+       id,
+       "count knowledge-hook predicate requires a SELECT binding result",
+       %{result_kind: observation.result_kind}
+     )}
+  end
+
+  defp threshold_value([row], nil, id) do
+    case Map.values(row) do
+      [value] when is_number(value) ->
+        {:ok, value}
+
+      [value] when is_binary(value) ->
+        parse_numeric(value, id)
+
+      _ ->
+        threshold_value_error(row, id)
+    end
+  end
+
+  defp threshold_value([row], variable, id) when is_binary(variable) do
+    case Map.fetch(row, variable) do
+      {:ok, value} when is_number(value) -> {:ok, value}
+      {:ok, value} when is_binary(value) -> parse_numeric(value, id)
+      _ -> threshold_value_error(row, id)
+    end
+  end
+
+  defp threshold_value(rows, _variable, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_BOUND_PREDICATE,
+       id,
+       "threshold knowledge-hook predicate requires exactly one result row",
+       %{row_count: length(rows)}
+     )}
+  end
+
+  defp parse_numeric(value, id) do
+    case Float.parse(value) do
+      {number, ""} ->
+        {:ok, number}
+
+      _ ->
+        {:error,
+         Refusal.new(
+           :REFUSED_INVALID_BOUND_PREDICATE,
+           id,
+           "threshold knowledge-hook predicate result is not numeric",
+           %{value: value}
+         )}
+    end
+  end
+
+  defp threshold_value_error(row, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_BOUND_PREDICATE,
+       id,
+       "threshold knowledge-hook predicate requires a single numeric binding",
+       %{row: inspect(row)}
+     )}
+  end
+
+  defp compare(value, :gt, bound), do: value > bound
+  defp compare(value, :gte, bound), do: value >= bound
+  defp compare(value, :lt, bound), do: value < bound
+  defp compare(value, :lte, bound), do: value <= bound
+  defp compare(value, :eq, bound), do: value == bound
 
   defp execute_query(query, opts) do
     with {:ok, plan} <- AshR2RML.SPARQL.explore(query, opts),
@@ -679,6 +923,12 @@ defmodule AshR2RML.KnowledgeHooks do
     do: [:previous_sparql_observation, :current_sparql_observation, :result_delta]
 
   defp evaluation_steps(:ask, _), do: [:sparql_observation, :ask_evaluation]
+
+  defp evaluation_steps(:shacl, _), do: [:shacl_shapes_admission, :shacl_conformance_check]
+
+  defp evaluation_steps(:threshold, _), do: [:sparql_observation, :threshold_comparison]
+
+  defp evaluation_steps(:count, _), do: [:sparql_observation, :count_comparison]
 
   defp external_trigger_witness(hook_id, opts) do
     witnesses = Keyword.get(opts, :trigger_receipts, %{})
@@ -938,12 +1188,21 @@ defmodule AshR2RML.KnowledgeHooks do
   defp normalize_trigger_type("event"), do: :event
   defp normalize_trigger_type(_), do: :unsupported
 
-  defp normalize_predicate_type(type) when type in [:ask, :result_delta, :external_trigger], do: type
+  defp normalize_predicate_type(type)
+       when type in [:ask, :result_delta, :external_trigger, :shacl, :threshold, :count],
+       do: type
+
   defp normalize_predicate_type("ask"), do: :ask
   defp normalize_predicate_type("ASKPredicate"), do: :ask
   defp normalize_predicate_type("result_delta"), do: :result_delta
   defp normalize_predicate_type("ResultDelta"), do: :result_delta
   defp normalize_predicate_type("external_trigger"), do: :external_trigger
+  defp normalize_predicate_type("shacl"), do: :shacl
+  defp normalize_predicate_type("SHACLPredicate"), do: :shacl
+  defp normalize_predicate_type("threshold"), do: :threshold
+  defp normalize_predicate_type("ThresholdPredicate"), do: :threshold
+  defp normalize_predicate_type("count"), do: :count
+  defp normalize_predicate_type("CountPredicate"), do: :count
   defp normalize_predicate_type(_), do: :unsupported
 
   defp canonical_definition(hook) do

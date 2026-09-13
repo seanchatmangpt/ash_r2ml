@@ -31,6 +31,8 @@ defmodule AshR2RML.Refusal do
           | :UNSUPPORTED_ASH_TYPE
           | :REFUSED_UNSUPPORTED_SPARQL_FEATURE
           | :REFUSED_SENSITIVE_ATTRIBUTE_MATERIALIZATION
+          | :REFUSED_INVALID_SHACL_SHAPES_GRAPH
+          | :REFUSED_INVALID_BOUND_PREDICATE
 
   @type t :: %__MODULE__{
           code: code(),

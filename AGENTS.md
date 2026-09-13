@@ -152,6 +152,38 @@ or engine outside AshR2RML's own supported stack (Ash, `Ash.DataLayer.Ets`, `Ash
 Ontop) is ever benchmarked — see `bench/README.md`. `documentation/topics/why-ashr2rml.md`
 explains the product positioning grounded in those numbers.
 
+### Knowledge hooks
+
+`AshR2RML.KnowledgeHooks` admits a read-only predicate over the graph, evaluates it, and
+constructs a downstream `Intent` — it never actuates (`A = μ(O*)` boundary above). Six
+predicate types are supported today, each with `admit/2` compile-time validation and
+`evaluate/2` runtime execution:
+
+| Type | What it observes | Typed refusal on malformed input |
+|---|---|---|
+| `:ask` | SPARQL `ASK` query truth value | `REFUSED_UNPROVEN_EQUIVALENCE` |
+| `:result_delta` | Change between successive `SELECT` result sets | `REFUSED_UNPROVEN_EQUIVALENCE` |
+| `:external_trigger` | An externally-supplied receipt (no in-repo query) | `REFUSED_UNPROVEN_EQUIVALENCE` |
+| `:shacl` | SHACL shape conformance for one or more focus nodes | `REFUSED_INVALID_SHACL_SHAPES_GRAPH` |
+| `:threshold` | A bound SPARQL variable compared against a numeric bound (`:gt`/`:gte`/`:lt`/`:lte`/`:eq`) | `REFUSED_INVALID_BOUND_PREDICATE` |
+| `:count` | Row count of a `SELECT` query compared against a numeric bound | `REFUSED_UNSUPPORTED_SPARQL_FEATURE` (non-`SELECT` form) |
+
+`:threshold` and `:count` both admission-refuse an unsupported `comparator` atom with
+`REFUSED_INVALID_BOUND_PREDICATE`; `:shacl` refuses a shapes graph that fails to parse or an
+empty focus set with `REFUSED_INVALID_SHACL_SHAPES_GRAPH`.
+
+Explicitly open, not-yet-designed extensions — do not assume these exist:
+
+- `:temporal_window` — a predicate that windows evaluation over a time range (e.g. "fired at
+  least N times in the last hour"). No admission rules, evaluation semantics, or receipt shape
+  have been designed yet.
+- `:datalog` — a predicate expressed as Datalog rules rather than SPARQL/SHACL. No parser,
+  admission law, or evaluation backend exists yet; this is a named gap, not a silent omission.
+
+Real test coverage for `:shacl`/`:threshold`/`:count` (conforming/violating/malformed cases per
+type, real `RDF.Graph`/`RDF.Turtle` fixtures, real local-RDF SPARQL execution, zero mocks) lives
+in `test/knowledge_hooks_shacl_threshold_count_test.exs`.
+
 ### Standing vocabulary
 
 `UNKNOWN`, `PARTIAL_ALIVE`, `ALIVE`, `BLOCKED`, `BUILD_BROKEN`, `UNSUPPORTED`, `REFUSED_<TYPE>`.
