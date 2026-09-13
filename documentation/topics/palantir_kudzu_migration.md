@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 ash_r2rml contributors <https://github.com/seanchatmangpt/ash_r2rml/graphs/contributors>
+#
+# SPDX-License-Identifier: MIT
+
 # Palantir → AshR2RML: Kudzu Semantic Sovereignty Case Study
 
 ## Working-backwards customer
@@ -72,6 +76,25 @@ silently disable JSON:API; enabling JSON:API does not pull `AshGraphql.Resource`
 back into the canonical GraphQL path. That independence is an executable
 invariant, not a migration preference.
 
+DfCM also preserves semantic dimensions that are not selected by the GraphQL
+projection. An admitted relationship remains a semantic object property even if
+its relational storage strategy is still unselected. Admitted actions remain
+explicit `excluded_consequence_actions` with `projected: false` and
+`consequence_path: brce`. Admitted policy semantics remain explicit
+`policy_obligations` with enforcement owned by the external runtime boundary.
+The projection therefore does not confuse "not executable here" with "semantic
+information may be discarded".
+
+```text
+relationship semantics != storage selection
+action semantics       != mutation projection
+policy semantics       != GraphQL-local authorization DSL
+
+Preserve(meaning)
+∧ Refuse(premature selection)
+∧ authority(GraphQL) = ∅
+```
+
 Composed ontologies also preserve their identities instead of requiring local
 name uniqueness. If two admitted classes collapse to the same GraphQL root
 field name — including a single-object query colliding with another class's
@@ -119,9 +142,10 @@ generated/graphql/semantic-manifest.json
 receipts/graphql-projection.json
 ```
 
-The receipt explicitly records `authority: none`, `mutation_root: false`, and
-`subscription_root: false`. It records runtime query execution as unsupported
-by this compiler surface rather than inventing a server or persistence owner.
+The receipt explicitly records `authority: none`, `mutation_root: false`,
+`subscription_root: false`, and `action_projection: false`. Runtime execution is
+not claimed by the compiler receipt: its `observed`, `executed`, and `verified`
+sets are empty until an external verifier supplies those receipts.
 
 ## Write-plane law
 
@@ -153,7 +177,8 @@ grant the semantic compiler or a GraphQL caller authority to execute them.
    constraints with the application profile + SHACL.
 4. **Manufacture side-by-side** — generate Ash, PostgreSQL, R2RML, SHACL, and
    optional read-only GraphQL from the same SemanticIR while preserving lawful
-   sibling projection combinations.
+   sibling projection combinations and unselected storage/action/policy
+   dimensions.
 5. **Verify equivalence** — execute representative read/process/action corpora
    against both worlds. Successful manufacture alone is PARTIAL_ALIVE.
 6. **Move consequence paths** — migrate named actions behind BRCE one bounded
@@ -192,6 +217,10 @@ claimed crown:
 - vendor-specific identity is required to interpret canonical objects;
 - a generated projection must be reverse-engineered to reconstruct meaning;
 - external semantic protocols can independently mutate state;
+- an unselected storage strategy causes an admitted semantic relationship to
+  disappear from the read contract;
+- excluded actions or policy obligations disappear merely because GraphQL cannot
+  execute or enforce them;
 - lawful sibling read projections cannot coexist without one implicitly
   selecting, disabling, or re-authoring another;
 - composed ontologies lose a class because generated protocol names collide;
