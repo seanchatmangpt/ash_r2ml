@@ -23,29 +23,39 @@ defmodule AshR2RML.Ggen do
   Runtime integration uses `compile_runtime_contract/1` to manufacture the exact-subject,
   authority-bound input consumed by the marketplace runtime integration pack.
   ggen still owns DO.
+
+  GraphQL, when enabled, is a canonical read-only projection of the same admitted
+  `SemanticIR`. It is never reconstructed from generated Ash source and never
+  requires `ash_graphql`. The only GraphQL setting is `graphql: true | false`;
+  custom application GraphQL belongs in `ash_graphql`.
   """
 
   alias AshR2RML.{Compilation, Refusal}
 
-  @spec compile_bundle(map()) :: {:ok, map()} | {:error, Compilation.t() | term()}
-  def compile_bundle(profile) do
+  @spec compile_bundle(map(), keyword()) :: {:ok, map()} | {:error, Compilation.t() | Refusal.t() | term()}
+  def compile_bundle(profile, opts \\ []) do
     with {:ok, compilation} <- AshR2RML.Compiler.compile(profile),
          {:ok, receipt_json} <- encode_json(compilation.receipt),
-         {:ok, catalog_json} <- encode_json(compilation.ir) do
+         {:ok, catalog_json} <- encode_json(compilation.ir),
+         {:ok, graphql_files} <- graphql_files(compilation.ir, Keyword.get(opts, :graphql, false)) do
+      files =
+        %{
+          "generated/ash/ontology_resources.ex" => compilation.ash_source,
+          "generated/ecto/semantic_schema_migration.exs" => compilation.ecto_migration,
+          "generated/sql/semantic_schema.sql" => compilation.postgres_ddl,
+          "priv/r2rml/mapping.ttl" => compilation.r2rml,
+          "generated/shacl/operational-profile.ttl" => compilation.shacl,
+          "generated/catalog/resource-map.json" => catalog_json,
+          "receipts/semantic-compilation.json" => receipt_json
+        }
+        |> Map.merge(graphql_files)
+
       {:ok,
        %{
          status: :PARTIAL_ALIVE,
          standing: :construct_only,
          receipt: compilation.receipt,
-         files: %{
-           "generated/ash/ontology_resources.ex" => compilation.ash_source,
-           "generated/ecto/semantic_schema_migration.exs" => compilation.ecto_migration,
-           "generated/sql/semantic_schema.sql" => compilation.postgres_ddl,
-           "priv/r2rml/mapping.ttl" => compilation.r2rml,
-           "generated/shacl/operational-profile.ttl" => compilation.shacl,
-           "generated/catalog/resource-map.json" => catalog_json,
-           "receipts/semantic-compilation.json" => receipt_json
-         }
+         files: files
        }}
     end
   end
@@ -85,35 +95,67 @@ defmodule AshR2RML.Ggen do
   @doc "Parse an RDF/SHACL Turtle profile, then manufacture the same deterministic ggen bundle."
   @spec compile_turtle_bundle(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def compile_turtle_bundle(turtle, opts \\ []) do
-    with {:ok, profile} <- AshR2RML.Ingestion.from_turtle(turtle, opts), do: compile_bundle(profile)
+    with {:ok, profile} <- AshR2RML.Ingestion.from_turtle(turtle, opts) do
+      compile_bundle(profile, Keyword.take(opts, [:graphql]))
+    end
   end
 
   @doc "Parse a JSON-LD 1.1 RDF/SHACL profile, then manufacture the same deterministic ggen bundle."
   @spec compile_jsonld_bundle(String.t() | map() | list(), keyword()) :: {:ok, map()} | {:error, term()}
   def compile_jsonld_bundle(jsonld, opts \\ []) do
-    with {:ok, profile} <- AshR2RML.JSONLD.ingest(jsonld, opts), do: compile_bundle(profile)
+    with {:ok, profile} <- AshR2RML.JSONLD.ingest(jsonld, opts) do
+      compile_bundle(profile, Keyword.take(opts, [:graphql]))
+    end
   end
 
   @doc """
-  Manufacture a deterministic ggen bundle containing only Ash resource source with
-  auto-derived `graphql do ... end`/`json_api do ... end` blocks, from the same admitted
-  mapping IR `compile_bundle/1` uses -- additive, does not change `compile_bundle/1`'s output.
+  Manufacture deterministic API-adjacent projections from one admitted semantic IR.
 
-  This does not add a GraphQL/JSON:API runtime dependency to `AshR2RML` itself: any consumer
-  resource can already add `AshGraphql.Resource`/`AshJsonApi.Resource` directly, independent of
-  AshR2RML, because Ash extensions compose. `opts` is `graphql: true` and/or `json_api: true`
-  (both default `false`); see `AshR2RML.Semantic.Ash.render/2` for exactly what's derived.
+  `graphql: true` adds a canonical read-only GraphQL SDL, semantic manifest, and
+  projection receipt directly from `SemanticIR`. It does **not** add
+  `AshGraphql.Resource`, GraphQL mutations, subscriptions, or any write authority
+  to the generated Ash resource. `graphql: false` (the default) emits no GraphQL
+  artifacts. Any non-boolean GraphQL value is refused; use `ash_graphql` when a
+  custom GraphQL application surface is required.
+
+  `json_api: true` retains the pre-existing AshJsonApi projection and is
+  independent of the canonical GraphQL read plane.
   """
-  @spec compile_api_bundle(map(), keyword()) :: {:ok, map()} | {:error, [Refusal.t()]}
+  @spec compile_api_bundle(map(), keyword()) :: {:ok, map()} | {:error, [Refusal.t()] | Refusal.t()}
   def compile_api_bundle(profile, opts \\ []) when is_map(profile) do
+    graphql = Keyword.get(opts, :graphql, false)
+    ash_opts = Keyword.delete(opts, :graphql)
+
     with {:ok, ir} <- AshR2RML.Admission.admit(profile),
-         {:ok, ash_source} <- AshR2RML.Semantic.Ash.render(ir, opts) do
+         {:ok, ash_source} <- AshR2RML.Semantic.Ash.render(ir, ash_opts),
+         {:ok, graphql_files} <- graphql_files(ir, graphql) do
       {:ok,
        %{
          status: :PARTIAL_ALIVE,
          standing: :construct_only,
-         files: %{"generated/ash/api_resources.ex" => ash_source}
+         files: Map.put(graphql_files, "generated/ash/api_resources.ex", ash_source)
        }}
+    end
+  end
+
+  defp graphql_files(ir, enabled) do
+    case AshR2RML.Semantic.GraphQL.compile(ir, enabled) do
+      {:ok, nil} ->
+        {:ok, %{}}
+
+      {:ok, projection} ->
+        with {:ok, manifest_json} <- encode_json(projection.manifest),
+             {:ok, receipt_json} <- encode_json(projection.receipt) do
+          {:ok,
+           %{
+             "generated/graphql/schema.graphql" => projection.schema,
+             "generated/graphql/semantic-manifest.json" => manifest_json <> "\n",
+             "receipts/graphql-projection.json" => receipt_json <> "\n"
+           }}
+        end
+
+      {:error, %Refusal{} = refusal} ->
+        {:error, refusal}
     end
   end
 
