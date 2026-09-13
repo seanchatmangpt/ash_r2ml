@@ -11,7 +11,7 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
-## [Unreleased — targeting 26.9.0]
+## [Unreleased — targeting 26.9.12]
 
 ### Features:
 * **Knowledge-hook predicate closure — 8 predicate types (`AshR2RML.KnowledgeHooks`)**: added
