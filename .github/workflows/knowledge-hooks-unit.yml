@@ -14,6 +14,7 @@ on:
       - "lib/ash_r2rml/knowledge_hooks.ex"
       - "lib/ash_r2rml/knowledge_hook/**"
       - "lib/ash_r2rml/ggen/knowledge_hooks.ex"
+      - "lib/ash_r2rml/frontier_evidence.ex"
       - "priv/ontology/knowledge-hooks.ttl"
       - "priv/shapes/knowledge-hooks.shacl.ttl"
       - "test/knowledge_hooks_test.exs"
@@ -22,6 +23,8 @@ on:
       - "test/knowledge_hook_promotion_test.exs"
       - "test/knowledge_hook_vocabulary_test.exs"
       - "test/knowledge_hook_rdf_test.exs"
+      - "test/frontier_evidence_test.exs"
+      - "test/frontier_evidence_identity_test.exs"
       - "test/adversarial/knowledge_hooks_authority_test.exs"
       - ".github/workflows/knowledge-hooks-unit.yml"
   pull_request:
@@ -31,6 +34,7 @@ on:
       - "lib/ash_r2rml/knowledge_hooks.ex"
       - "lib/ash_r2rml/knowledge_hook/**"
       - "lib/ash_r2rml/ggen/knowledge_hooks.ex"
+      - "lib/ash_r2rml/frontier_evidence.ex"
       - "priv/ontology/knowledge-hooks.ttl"
       - "priv/shapes/knowledge-hooks.shacl.ttl"
       - "test/knowledge_hooks_test.exs"
@@ -39,6 +43,8 @@ on:
       - "test/knowledge_hook_promotion_test.exs"
       - "test/knowledge_hook_vocabulary_test.exs"
       - "test/knowledge_hook_rdf_test.exs"
+      - "test/frontier_evidence_test.exs"
+      - "test/frontier_evidence_identity_test.exs"
       - "test/adversarial/knowledge_hooks_authority_test.exs"
       - ".github/workflows/knowledge-hooks-unit.yml"
 
@@ -66,6 +72,13 @@ jobs:
       - name: Install dependencies
         run: mix deps.get
 
+      - name: Check FrontierEvidence formatting
+        run: >-
+          mix format --check-formatted
+          lib/ash_r2rml/frontier_evidence.ex
+          test/frontier_evidence_test.exs
+          test/frontier_evidence_identity_test.exs
+
       - name: Compile with warnings as errors
         run: mix compile --force --warnings-as-errors
 
@@ -78,4 +91,6 @@ jobs:
           test/knowledge_hook_promotion_test.exs
           test/knowledge_hook_vocabulary_test.exs
           test/knowledge_hook_rdf_test.exs
+          test/frontier_evidence_test.exs
+          test/frontier_evidence_identity_test.exs
           test/adversarial/knowledge_hooks_authority_test.exs
