@@ -11,7 +11,67 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
-## [Unreleased — feat/graphql-query-only-projection branch]
+## [Unreleased — targeting 26.9.0]
+
+### Features:
+* **Knowledge-hook predicate closure — 8 predicate types (`AshR2RML.KnowledgeHooks`)**: added
+  `:shacl` (SHACL shape conformance over one or more focus nodes, `REFUSED_INVALID_SHACL_SHAPES_GRAPH`),
+  `:threshold` and `:count` (bound SPARQL `SELECT` variable / row count vs. a numeric bound,
+  `REFUSED_INVALID_BOUND_PREDICATE`), `:temporal_window` (every extracted `time_field` value
+  compared against a caller-supplied `evaluated_at` over a `{unit, comparator, bound}` window —
+  never an internal wall-clock read; missing `evaluated_at` is `REFUSED_MISSING_EVALUATION_TIME`,
+  not a silent "now" default), and `:datalog` (`AshR2RML.KnowledgeHook.Datalog`, a deliberately
+  scoped hand-written single-rule evaluator — no recursion/negation/aggregation/stratification —
+  joined by nested-loop substitution over `RDF.Data.statements/1`; malformed/recursive/unsafe
+  rules refuse with `REFUSED_INVALID_DATALOG_RULE`). This closes out the two predicate types
+  named as open gaps in the prior release (`:temporal_window`, `:datalog`), bringing the total
+  to 8 (`:ask`, `:result_delta`, `:external_trigger`, `:shacl`, `:threshold`, `:count`,
+  `:temporal_window`, `:datalog`). Real Chicago-style test coverage, zero mocks, real
+  `RDF.Graph`/`RDF.Turtle` fixtures: `test/knowledge_hooks_shacl_threshold_count_test.exs`,
+  `test/knowledge_hooks_temporal_window_test.exs` (6 cases), `test/knowledge_hooks_datalog_test.exs`
+  (8 cases). `mix compile --warnings-as-errors` clean; full suite `693 tests, 6 failures`, all 6
+  pre-existing live-Ontop/Postgres row-count adversarial failures unrelated to this work and in
+  files this change never touched.
+* **Auto-projected GraphQL over the same admitted subject (`feat/graphql-query-only-projection`)**:
+  query-only GraphQL projection derived from the same `AshR2RML.SemanticIR`/mapping admission
+  path used for R2RML rendering, so a resource's semantic mapping produces GraphQL, R2RML, and
+  SPARQL surfaces from one admitted subject rather than three independently maintained ones. See
+  `lib/ash_r2rml/graphql.ex`, `lib/ash_r2rml/semantic_graphql.ex`,
+  `test/graphql_query_only_projection_test.exs`, `test/graphql_auto_projection_test.exs`,
+  `test/semantic_graphql_dfcm_test.exs`, `test/graphql_short_name_collision_test.exs`.
+* **`AshR2RML.SemanticIR` naming clarification**: the intermediate representation module used by
+  both the Ash-first and ontology-first compilation paths (`AshR2RML.SemanticIR.{Resource,
+  Attribute, Relationship, Identity, Action, Policy}`) is named and documented explicitly as the
+  shared IR both paths converge on, distinguishing it from the R2RML rendering stage downstream
+  of it (`lib/ash_r2rml/semantic_ir.ex`, `lib/ash_r2rml/admission.ex`).
+* **Palantir/Kudzu single-object migration demonstration**: a real, executed cross-repo proof
+  (`ash_kudzu` at commit `44ec739`, real path dependency on this repo's `test/support` fixtures,
+  real `AshKudzu.Introspector`/admission calls, no mocks) that `AshR2RML`'s SHACL-derived
+  admission path composes with `ash_kudzu`'s own introspection/admission pipeline across repo
+  boundaries. See `documentation/topics/palantir_kudzu_migration.md`,
+  `test/palantir_migration_demonstration_test.exs`.
+* **`AshR2RML.Federation` determinism module**: `admit_environment/1` admits a named environment
+  identity (`name`, `compiler_version`, `admitted_ontology_sha256`) or refuses a malformed one;
+  `compile_for_environments/2` compiles the same admitted semantic profile independently per
+  environment and returns a `FederationReceipt` asserting byte-identical generated-artifact
+  identity (sha256 over compiled Ash/Ecto/DDL/R2RML/SHACL output) across every environment
+  sharing compiler+ontology identity, naming exactly which environment diverges otherwise.
+  In-process determinism substrate only — explicitly **not** network federation, multi-tenant
+  deployment, or a real customer environment (`README.md` "Federation" section states this
+  distinction; do not read it as an enterprise-deployment claim). See
+  `lib/ash_r2rml/federation.ex`, `test/federation_test.exs`.
+
+### Documentation:
+* `documentation/how_to/knowledge_hooks.md` extended to document all 8 predicate types
+  (previously covered only `:ask`/`:result_delta`/`:external_trigger`), with real usage examples
+  for `:threshold`/`:count`/`:shacl`/`:temporal_window`/`:datalog`.
+* `AGENTS.md` "Knowledge hooks" section updated: predicate table extended from 6 to 8 rows,
+  `:temporal_window`/`:datalog` moved out of the "explicitly open, not-yet-designed" list (now
+  real and tested) into the main table with their typed refusal codes.
+* `README.md`: added a "Knowledge hooks" section and a "Status" section stating this repo's real
+  PARTIAL_ALIVE capability and named gaps explicitly (no Fortune-500/enterprise-deployed framing
+  anywhere), plus documentation links for the knowledge-hooks how-to and the Palantir/Kudzu
+  migration demonstration.
 
 ### Security:
 * **Sensitive-attribute plaintext leak into `AshR2RML.OBDA.InMemory` closed (R2RML-109)**: an attribute marked `sensitive?: true` on the Ash resource (Ash core's own redaction flag) previously materialized its real plaintext value into the RDF graph exactly like any other attribute — `Ash.read!/2` returns the real value for a `sensitive?: true` field, unlike a field-policy denial, which Ash itself replaces with a `%Ash.ForbiddenField{}` sentinel that materialization already omits. `AshR2RML.OBDA.InMemory.materialize/3`/`materialize_many/2` now check every predicate-object-mapped attribute against `Ash.Resource.Info.attribute/2`'s `sensitive?` flag and refuse (new typed `:REFUSED_SENSITIVE_ATTRIBUTE_MATERIALIZATION` code) rather than materialize by default; pass `allow_sensitive: true` to opt in explicitly.

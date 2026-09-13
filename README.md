@@ -519,6 +519,43 @@ one BEAM node — there is no runtime, no cluster, no customer infrastructure
 behind it. This module is the determinism substrate a federation claim would
 need, not the claim itself.
 
+## Knowledge hooks
+
+`AshR2RML.KnowledgeHooks` (`documentation/how_to/knowledge_hooks.md`) admits a read-only
+predicate over the RDF graph, evaluates it, and constructs a downstream `Intent` with
+`authority: :UNAUTHORIZED` — it never actuates. **PARTIAL_ALIVE**: 8 predicate types are real
+and tested end-to-end (`:ask`, `:result_delta`, `:external_trigger`, `:shacl`, `:threshold`,
+`:count`, `:temporal_window`, `:datalog`), each with typed admission refusals and zero-mock
+Chicago-style tests over real `RDF.Graph`/`RDF.Turtle` fixtures. `:datalog` is a deliberately
+scoped hand-written single-rule evaluator (no recursion/negation/aggregation/stratification),
+not a general Datalog engine — a real, named gap if broader Datalog semantics are ever needed.
+GitVan v4 and KNHK Turtle vocabularies are recognized on import.
+
+## Status
+
+This repository is **PARTIAL_ALIVE**, not a finished product. Real, verified capability:
+R2RML compilation from Ash resources (relational + join-derived reference object maps),
+two in-repo OBDA execution backends (`AshR2RML.OBDA.InMemory` over `Ash.DataLayer.Ets`,
+`AshR2RML.OBDA.Ontop` over `AshPostgres`+Ontop+JDBC), a typed refusal vocabulary (14 mapping
+refusal codes plus 4 knowledge-hook refusal codes), auto-projected GraphQL over the same
+admitted subject, 8 knowledge-hook predicate types, and an in-process `AshR2RML.Federation`
+determinism substrate (byte-identical artifact hashing across N named environment configs
+compiled sequentially in one BEAM node).
+
+Named gaps, stated honestly rather than glossed over:
+
+- `AshR2RML.Federation` proves deterministic artifact identity across in-process environment
+  configs — it does **not** implement network federation, multi-tenant deployment, or run
+  against any real Fortune 500 or other customer environment.
+- `Ash.Type.Range` has no R2RML datatype mapping yet (parameterized-type rendering path not
+  built; `UNSUPPORTED_ASH_TYPE`).
+- `:datalog` knowledge hooks support one non-recursive rule only, by design.
+- Live-Postgres/Ontop adversarial tests depend on a running local Postgres+Ontop stack and are
+  not run in every environment; see `test/adversarial/`.
+
+Never treat this README, `AGENTS.md`, or `CHANGELOG.md` as proof a capability is wired end to
+end — the real evidence is the cited test file and its actual passing run.
+
 ## What AshR2RML does not do
 
 AshR2RML deliberately does not:
@@ -537,6 +574,8 @@ AshR2RML deliberately does not:
 - [Ash-first mapping](documentation/how_to/ash_first.livemd)
 - [Ontology-first generation](documentation/how_to/ontology_first.livemd)
 - [Managing relational schema and R2RML](documentation/how_to/managing_schema.livemd)
+- [Knowledge hooks](documentation/how_to/knowledge_hooks.md)
+- [Palantir/Kudzu migration demonstration](documentation/topics/palantir_kudzu_migration.md)
 - [Usage rules](usage-rules.md)
 
 ## Development

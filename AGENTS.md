@@ -170,7 +170,7 @@ explains the product positioning grounded in those numbers.
 ### Knowledge hooks
 
 `AshR2RML.KnowledgeHooks` admits a read-only predicate over the graph, evaluates it, and
-constructs a downstream `Intent` — it never actuates (`A = μ(O*)` boundary above). Six
+constructs a downstream `Intent` — it never actuates (`A = μ(O*)` boundary above). Eight
 predicate types are supported today, each with `admit/2` compile-time validation and
 `evaluate/2` runtime execution:
 
@@ -182,22 +182,24 @@ predicate types are supported today, each with `admit/2` compile-time validation
 | `:shacl` | SHACL shape conformance for one or more focus nodes | `REFUSED_INVALID_SHACL_SHAPES_GRAPH` |
 | `:threshold` | A bound SPARQL variable compared against a numeric bound (`:gt`/`:gte`/`:lt`/`:lte`/`:eq`) | `REFUSED_INVALID_BOUND_PREDICATE` |
 | `:count` | Row count of a `SELECT` query compared against a numeric bound | `REFUSED_UNSUPPORTED_SPARQL_FEATURE` (non-`SELECT` form) |
+| `:temporal_window` | Every extracted `time_field` value in a `SELECT` result set compared against a caller-supplied `evaluated_at` over a `{unit, comparator, bound}` window | admission: malformed window/non-`SELECT` form is Blocked; evaluation without a real `evaluated_at`: `REFUSED_MISSING_EVALUATION_TIME` |
+| `:datalog` | A single non-recursive Datalog rule (`head(Vars) :- (S,P,O), ...`) joined by nested-loop substitution over `RDF.Data.statements/1` | `REFUSED_INVALID_DATALOG_RULE` (malformed, recursive, or unsafe) |
 
 `:threshold` and `:count` both admission-refuse an unsupported `comparator` atom with
 `REFUSED_INVALID_BOUND_PREDICATE`; `:shacl` refuses a shapes graph that fails to parse or an
-empty focus set with `REFUSED_INVALID_SHACL_SHAPES_GRAPH`.
+empty focus set with `REFUSED_INVALID_SHACL_SHAPES_GRAPH`. `:temporal_window` never falls back
+to an internal wall-clock read (no `DateTime.utcnow()`/`System.os_time()` inside the module) —
+`evaluated_at` must be supplied as a real `%DateTime{}` in `evaluate/2` opts, or the evaluation
+is refused rather than silently defaulting to "now." `:datalog` is a deliberate hand-written
+scoped subset (`AshR2RML.KnowledgeHook.Datalog`): single rule only, no recursion, no negation,
+no aggregation, no stratification — `deps/rdf` ships no Datalog engine and a full external
+Datalog dependency was left as a future scope decision, not adopted unilaterally.
 
-Explicitly open, not-yet-designed extensions — do not assume these exist:
-
-- `:temporal_window` — a predicate that windows evaluation over a time range (e.g. "fired at
-  least N times in the last hour"). No admission rules, evaluation semantics, or receipt shape
-  have been designed yet.
-- `:datalog` — a predicate expressed as Datalog rules rather than SPARQL/SHACL. No parser,
-  admission law, or evaluation backend exists yet; this is a named gap, not a silent omission.
-
-Real test coverage for `:shacl`/`:threshold`/`:count` (conforming/violating/malformed cases per
-type, real `RDF.Graph`/`RDF.Turtle` fixtures, real local-RDF SPARQL execution, zero mocks) lives
-in `test/knowledge_hooks_shacl_threshold_count_test.exs`.
+Real test coverage for all 8 predicate types (conforming/violating/malformed cases per type,
+real `RDF.Graph`/`RDF.Turtle` fixtures, real local-RDF SPARQL execution, zero mocks) lives in
+`test/knowledge_hooks_shacl_threshold_count_test.exs`,
+`test/knowledge_hooks_temporal_window_test.exs` (6 cases), and
+`test/knowledge_hooks_datalog_test.exs` (8 cases).
 
 ### Standing vocabulary
 

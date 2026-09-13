@@ -34,6 +34,8 @@ defmodule AshR2RML.Refusal do
           | :REFUSED_INVALID_SHACL_SHAPES_GRAPH
           | :REFUSED_INVALID_BOUND_PREDICATE
           | :REFUSED_INVALID_FEDERATION_ENVIRONMENT
+          | :REFUSED_MISSING_EVALUATION_TIME
+          | :REFUSED_INVALID_DATALOG_RULE
 
   @type t :: %__MODULE__{
           code: code(),

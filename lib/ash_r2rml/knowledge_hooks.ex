@@ -16,20 +16,28 @@ defmodule AshR2RML.KnowledgeHook.Predicate do
     :focus,
     :comparator,
     :bound,
-    :variable
+    :variable,
+    :window,
+    :time_field,
+    :datalog_rule,
+    :datalog_rule_sha256
   ]
 
   @type t :: %__MODULE__{
-          type: :ask | :result_delta | :external_trigger | :shacl | :threshold | :count,
+          type: :ask | :result_delta | :external_trigger | :shacl | :datalog | :threshold | :count | :temporal_window,
           query: AshR2RML.SPARQL.Query.t() | nil,
           query_sha256: String.t() | nil,
           query_form: atom() | nil,
           shapes_graph: RDF.Graph.t() | nil,
           shapes_graph_sha256: String.t() | nil,
           focus: String.t() | [String.t()] | nil,
+          datalog_rule: AshR2RML.KnowledgeHook.Datalog.t() | nil,
+          datalog_rule_sha256: String.t() | nil,
           comparator: :gt | :gte | :lt | :lte | :eq | nil,
           bound: number() | nil,
-          variable: String.t() | nil
+          variable: String.t() | nil,
+          window: {:second | :minute | :hour | :day, :gt | :gte | :lt | :lte | :eq, number()} | nil,
+          time_field: String.t() | nil
         }
 end
 
@@ -155,7 +163,7 @@ defmodule AshR2RML.KnowledgeHooks do
   authority inside AshR2RML.
   """
 
-  alias AshR2RML.KnowledgeHook.{Definition, Evaluation, EvaluationReceipt, Intent, Plan, Predicate, SHACL}
+  alias AshR2RML.KnowledgeHook.{Datalog, Definition, Evaluation, EvaluationReceipt, Intent, Plan, Predicate, SHACL}
   alias AshR2RML.{Compiler, Refusal}
 
   @rdf_type "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
@@ -452,8 +460,14 @@ defmodule AshR2RML.KnowledgeHooks do
       :shacl ->
         normalize_shacl_predicate(raw, id)
 
+      :datalog ->
+        normalize_datalog_predicate(raw, id)
+
       type when type in [:threshold, :count] ->
         normalize_bound_predicate(type, raw, query, id)
+
+      :temporal_window ->
+        normalize_temporal_window_predicate(raw, query, id)
 
       _ ->
         {:error,
@@ -463,7 +477,16 @@ defmodule AshR2RML.KnowledgeHooks do
            "unsupported knowledge-hook predicate type",
            %{
              predicate_type: get(raw, :type),
-             supported: [:ask, :result_delta, :external_trigger, :shacl, :threshold, :count]
+             supported: [
+               :ask,
+               :result_delta,
+               :external_trigger,
+               :shacl,
+               :datalog,
+               :threshold,
+               :count,
+               :temporal_window
+             ]
            }
          )}
     end
@@ -485,7 +508,9 @@ defmodule AshR2RML.KnowledgeHooks do
        when form in [:select, :ask, :construct, :describe],
        do: :ok
 
-  defp verify_query_form(type, %{form: :select}, _id) when type in [:threshold, :count], do: :ok
+  defp verify_query_form(type, %{form: :select}, _id)
+       when type in [:threshold, :count, :temporal_window],
+       do: :ok
 
   defp verify_query_form(type, admitted, id) do
     {:error,
@@ -537,6 +562,35 @@ defmodule AshR2RML.KnowledgeHooks do
        "SHACL predicate requires a non-empty focus IRI (or list of IRIs)",
        %{got: inspect(focus)}
      )}
+  end
+
+  defp normalize_datalog_predicate(raw, id) do
+    rule_text = get(raw, :rule)
+
+    case rule_text do
+      text when is_binary(text) and text != "" ->
+        case Datalog.admit_rule(text) do
+          {:ok, rule} ->
+            {:ok,
+             %Predicate{
+               type: :datalog,
+               datalog_rule: rule,
+               datalog_rule_sha256: Compiler.sha256(text)
+             }}
+
+          {:error, %Refusal{} = refusal} ->
+            {:error, %{refusal | subject: id}}
+        end
+
+      other ->
+        {:error,
+         Refusal.new(
+           :REFUSED_INVALID_DATALOG_RULE,
+           id,
+           "Datalog predicate requires a non-empty rule text",
+           %{got: inspect(other)}
+         )}
+    end
   end
 
   defp normalize_bound_predicate(type, raw, query, id) do
@@ -593,6 +647,84 @@ defmodule AshR2RML.KnowledgeHooks do
        id,
        "#{type} predicate requires a numeric bound",
        %{got: inspect(bound)}
+     )}
+  end
+
+  defp normalize_temporal_window_predicate(raw, query, id) do
+    window = get(raw, :window)
+    time_field = get(raw, :time_field)
+
+    with {:ok, admitted} <- AshR2RML.SPARQL.Query.admit(query),
+         :ok <- verify_query_form(:temporal_window, admitted, id),
+         {:ok, normalized_window} <- verify_window(window, id),
+         {:ok, normalized_time_field} <- verify_time_field(time_field, id) do
+      {:ok,
+       %Predicate{
+         type: :temporal_window,
+         query: admitted,
+         query_sha256: admitted.sha256,
+         query_form: admitted.form,
+         window: normalized_window,
+         time_field: normalized_time_field
+       }}
+    end
+  end
+
+  defp verify_window({unit, comparator, bound}, id) when is_number(bound) do
+    with {:ok, normalized_unit} <- verify_temporal_unit(unit, id),
+         {:ok, normalized_comparator} <- verify_temporal_comparator(comparator, id) do
+      {:ok, {normalized_unit, normalized_comparator, bound}}
+    end
+  end
+
+  defp verify_window(other, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_BOUND_PREDICATE,
+       id,
+       "temporal_window predicate requires a {unit, comparator, bound} window spec",
+       %{got: inspect(other)}
+     )}
+  end
+
+  defp verify_temporal_unit(unit, _id) when unit in [:second, :minute, :hour, :day], do: {:ok, unit}
+
+  defp verify_temporal_unit(unit, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_BOUND_PREDICATE,
+       id,
+       "temporal_window predicate window requires a supported time unit",
+       %{supported: [:second, :minute, :hour, :day], got: inspect(unit)}
+     )}
+  end
+
+  defp verify_temporal_comparator(comparator, id) do
+    case normalize_comparator(comparator) do
+      :unsupported ->
+        {:error,
+         Refusal.new(
+           :REFUSED_INVALID_BOUND_PREDICATE,
+           id,
+           "temporal_window predicate window requires a supported comparator",
+           %{supported: [:gt, :gte, :lt, :lte, :eq]}
+         )}
+
+      normalized ->
+        {:ok, normalized}
+    end
+  end
+
+  defp verify_time_field(field, _id) when is_binary(field) and field != "", do: {:ok, field}
+  defp verify_time_field(field, _id) when is_atom(field) and not is_nil(field), do: {:ok, to_string(field)}
+
+  defp verify_time_field(other, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_BOUND_PREDICATE,
+       id,
+       "temporal_window predicate requires a non-empty time_field variable name",
+       %{got: inspect(other)}
      )}
   end
 
@@ -707,6 +839,15 @@ defmodule AshR2RML.KnowledgeHooks do
     end
   end
 
+  defp evaluate_hook(%Definition{predicate: %Predicate{type: :datalog} = predicate} = hook, plan_sha256, opts) do
+    data = shacl_data(opts)
+
+    with {:ok, bindings} <- Datalog.evaluate(predicate.datalog_rule, data, []) do
+      matched? = bindings != []
+      build_evaluation(hook, plan_sha256, matched?, [], nil)
+    end
+  end
+
   defp evaluate_hook(
          %Definition{predicate: %Predicate{type: type} = predicate} = hook,
          plan_sha256,
@@ -718,6 +859,114 @@ defmodule AshR2RML.KnowledgeHooks do
       build_evaluation(hook, plan_sha256, matched?, [observation], nil)
     end
   end
+
+  defp evaluate_hook(
+         %Definition{predicate: %Predicate{type: :temporal_window} = predicate} = hook,
+         plan_sha256,
+         opts
+       ) do
+    with {:ok, evaluated_at} <- fetch_evaluated_at(opts, hook.id),
+         {:ok, observation} <- execute_query(predicate.query, current_opts(opts)),
+         {:ok, matched?} <- temporal_window_result(predicate, observation, evaluated_at, hook.id) do
+      build_evaluation(hook, plan_sha256, matched?, [observation], nil)
+    end
+  end
+
+  defp fetch_evaluated_at(opts, id) do
+    case Keyword.get(opts, :evaluated_at) do
+      %DateTime{} = evaluated_at ->
+        {:ok, evaluated_at}
+
+      other ->
+        {:error,
+         Refusal.new(
+           :REFUSED_MISSING_EVALUATION_TIME,
+           id,
+           "temporal_window knowledge-hook predicate requires an explicit evaluated_at timestamp",
+           %{required: %{evaluated_at: "<DateTime.t/0>"}, got: inspect(other)}
+         )}
+    end
+  end
+
+  defp temporal_window_result(_predicate, %{result_kind: :bindings, rows: []}, _evaluated_at, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_BOUND_PREDICATE,
+       id,
+       "temporal_window knowledge-hook predicate requires at least one result row",
+       %{row_count: 0}
+     )}
+  end
+
+  defp temporal_window_result(predicate, %{result_kind: :bindings, rows: rows}, evaluated_at, id) do
+    with {:ok, times} <- extract_time_field_values(rows, predicate.time_field, id) do
+      {unit, comparator, bound} = predicate.window
+
+      matched? =
+        Enum.all?(times, fn time ->
+          compare(DateTime.diff(evaluated_at, time, unit), comparator, bound)
+        end)
+
+      {:ok, matched?}
+    end
+  end
+
+  defp temporal_window_result(_predicate, observation, _evaluated_at, id) do
+    {:error,
+     Refusal.new(
+       :REFUSED_INVALID_BOUND_PREDICATE,
+       id,
+       "temporal_window knowledge-hook predicate requires a SELECT binding result",
+       %{result_kind: observation.result_kind}
+     )}
+  end
+
+  defp extract_time_field_values(rows, time_field, id) do
+    Enum.reduce_while(rows, {:ok, []}, fn row, {:ok, acc} ->
+      case Map.fetch(row, time_field) do
+        {:ok, value} ->
+          case parse_xsd_datetime(value) do
+            {:ok, datetime} ->
+              {:cont, {:ok, [datetime | acc]}}
+
+            :error ->
+              {:halt,
+               {:error,
+                Refusal.new(
+                  :REFUSED_INVALID_BOUND_PREDICATE,
+                  id,
+                  "temporal_window knowledge-hook predicate time_field value does not parse as xsd:dateTime",
+                  %{time_field: time_field, value: inspect(value)}
+                )}}
+          end
+
+        :error ->
+          {:halt,
+           {:error,
+            Refusal.new(
+              :REFUSED_INVALID_BOUND_PREDICATE,
+              id,
+              "temporal_window knowledge-hook predicate result row is missing the time_field binding",
+              %{time_field: time_field, row: inspect(row)}
+            )}}
+      end
+    end)
+    |> case do
+      {:ok, times} -> {:ok, Enum.reverse(times)}
+      error -> error
+    end
+  end
+
+  defp parse_xsd_datetime(%DateTime{} = datetime), do: {:ok, datetime}
+
+  defp parse_xsd_datetime(value) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, datetime, _offset} -> {:ok, datetime}
+      {:error, _reason} -> :error
+    end
+  end
+
+  defp parse_xsd_datetime(_other), do: :error
 
   defp shacl_data(opts) do
     opts |> current_opts() |> Keyword.get(:data, RDF.Graph.new())
@@ -926,9 +1175,13 @@ defmodule AshR2RML.KnowledgeHooks do
 
   defp evaluation_steps(:shacl, _), do: [:shacl_shapes_admission, :shacl_conformance_check]
 
+  defp evaluation_steps(:datalog, _), do: [:datalog_rule_admission, :datalog_pattern_join]
+
   defp evaluation_steps(:threshold, _), do: [:sparql_observation, :threshold_comparison]
 
   defp evaluation_steps(:count, _), do: [:sparql_observation, :count_comparison]
+
+  defp evaluation_steps(:temporal_window, _), do: [:sparql_observation, :temporal_window_comparison]
 
   defp external_trigger_witness(hook_id, opts) do
     witnesses = Keyword.get(opts, :trigger_receipts, %{})
@@ -989,8 +1242,12 @@ defmodule AshR2RML.KnowledgeHooks do
     types = objects(index, predicate_node, @rdf_type) |> Enum.map(&term_string/1)
 
     cond do
-      @gitvan_gh <> "ASKPredicate" in types -> {:ok, :ask}
-      @gitvan_gh <> "ResultDelta" in types -> {:ok, :result_delta}
+      (@gitvan_gh <> "ASKPredicate") in types ->
+        {:ok, :ask}
+
+      (@gitvan_gh <> "ResultDelta") in types ->
+        {:ok, :result_delta}
+
       true ->
         {:error,
          Refusal.new(
@@ -1039,9 +1296,15 @@ defmodule AshR2RML.KnowledgeHooks do
 
   defp require_knhk_receipt(index, subject, id) do
     case optional_value(index, subject, @knhk <> "emitReceipt") do
-      nil -> :ok
-      true -> :ok
-      "true" -> :ok
+      nil ->
+        :ok
+
+      true ->
+        :ok
+
+      "true" ->
+        :ok
+
       other ->
         {:error,
          Refusal.new(
@@ -1189,7 +1452,16 @@ defmodule AshR2RML.KnowledgeHooks do
   defp normalize_trigger_type(_), do: :unsupported
 
   defp normalize_predicate_type(type)
-       when type in [:ask, :result_delta, :external_trigger, :shacl, :threshold, :count],
+       when type in [
+              :ask,
+              :result_delta,
+              :external_trigger,
+              :shacl,
+              :datalog,
+              :threshold,
+              :count,
+              :temporal_window
+            ],
        do: type
 
   defp normalize_predicate_type("ask"), do: :ask
@@ -1199,10 +1471,14 @@ defmodule AshR2RML.KnowledgeHooks do
   defp normalize_predicate_type("external_trigger"), do: :external_trigger
   defp normalize_predicate_type("shacl"), do: :shacl
   defp normalize_predicate_type("SHACLPredicate"), do: :shacl
+  defp normalize_predicate_type("datalog"), do: :datalog
+  defp normalize_predicate_type("DatalogPredicate"), do: :datalog
   defp normalize_predicate_type("threshold"), do: :threshold
   defp normalize_predicate_type("ThresholdPredicate"), do: :threshold
   defp normalize_predicate_type("count"), do: :count
   defp normalize_predicate_type("CountPredicate"), do: :count
+  defp normalize_predicate_type("temporal_window"), do: :temporal_window
+  defp normalize_predicate_type("TemporalWindowPredicate"), do: :temporal_window
   defp normalize_predicate_type(_), do: :unsupported
 
   defp canonical_definition(hook) do
