@@ -49,5 +49,5 @@ jobs:
       - name: Compile with warnings as errors
         run: mix compile --force --warnings-as-errors
 
-      - name: Verify canonical GraphQL projection
-        run: mix test test/ggen_api_bundle_test.exs --trace
+      - name: Verify canonical GraphQL projection and DfCM boundary
+        run: mix test test/ggen_api_bundle_test.exs test/semantic_graphql_dfcm_test.exs --trace
