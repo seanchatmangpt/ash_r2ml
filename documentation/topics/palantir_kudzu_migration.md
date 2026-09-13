@@ -4,6 +4,51 @@
 
 # Palantir → AshR2RML: Kudzu Semantic Sovereignty Case Study
 
+## Status
+
+This document is a migration case study and acceptance model. A single scoped
+demonstration of the doctrine it describes exists in this repository:
+
+- `test/support/palantir_migration_fixture/incumbent_ontology_object.json` — a
+  small, hand-authored, illustrative "incumbent ontology object" (an `Asset`
+  object type, two datatype properties, one link to an `Organization` object
+  type), representative of a Palantir-style ontology object export. It is
+  **not** a real Palantir export.
+- `test/support/palantir_migration_fixture/resources.ex` — the same semantics
+  modeled natively as real `Ash.Resource`s (`AshR2RML.PalantirMigrationFixture.Asset`
+  and `.Organization`) with real AshR2RML semantic annotations.
+- `test/palantir_migration_demonstration_test.exs` — a real test that compiles
+  the Ash resource through AshR2RML's real introspection/compiler pipeline,
+  generates real R2RML/Turtle, and mechanically asserts the generated Turtle
+  preserves the same class/property/relationship facts the incumbent object
+  declared.
+
+This proves exactly one thing: for **one** object with **one** relationship,
+the same admitted meaning survives moving from an external ontology
+representation into a native Ash resource plus a generated projection — i.e.
+the "Standing and falsifiers" section's "a generated projection must be
+reverse-engineered to reconstruct meaning" falsifier does not hold for this
+one object.
+
+It is explicitly **not**:
+
+- a full enterprise migration tool;
+- multi-object graph migration (no composed ontology, no cross-object query
+  corpus);
+- bulk/batch migration tooling of any kind;
+- authority or policy migration (no BRCE admission, no ODRL/policy
+  obligations modeled for this fixture);
+- historical or temporal data migration (no provenance/versioning claims);
+- any actual live Palantir system integration, API call, or SDK usage — the
+  incumbent fixture is a hand-authored illustrative JSON snippet, not an
+  export from a real Palantir instance;
+- a validated claim about any real Palantir deployment, Kudzu phase
+  execution, or crown acceptance test as described below.
+
+The remainder of this document is the case-study narrative and acceptance
+model the fixture above scopes down to a single, mechanically-checked
+instance.
+
 ## Working-backwards customer
 
 A Fortune 5 enterprise has encoded a material part of its operating model in a

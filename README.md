@@ -489,6 +489,36 @@ R2RML
 SPARQL
 ```
 
+## Federation
+
+`AshR2RML.Federation` (`lib/ash_r2rml/federation.ex`) is real, mechanically
+checkable determinism substrate: `admit_environment/1` admits a named
+environment identity (`name`, `compiler_version`, `admitted_ontology_sha256`)
+or refuses a malformed one; `compile_for_environments/2` compiles the SAME
+admitted semantic profile independently, once per admitted environment, and
+returns a `FederationReceipt` asserting whether the generated artifact
+identity (a sha256 over the compiled Ash/Ecto/DDL/R2RML/SHACL output) is
+byte-identical across every environment that shares compiler+ontology
+identity — "same input, same compiler identity, same artifact identity,"
+checked by hash equality, not narrative.
+
+**What this proves:** deterministic artifact identity is verifiable across
+independently-configured environments — compile the same profile N times, in
+N differently-named environment configs, and get back N byte-identical
+generated artifacts (or, when an environment's admitted ontology identity
+diverges, a receipt that names exactly which environment diverged instead of
+silently averaging it away). `test/federation_test.exs` compiles a real
+profile across 3 named environments and asserts this for real, then mutates
+one environment's `admitted_ontology_sha256` and asserts the receipt reports
+`all_identical?: false` and names the diverging environment.
+
+**What this does NOT prove:** no real multi-tenant deployment, no network
+federation protocol, no actual Fortune 500 customer environment. Every
+"environment" here is an in-process identity tuple compiled sequentially in
+one BEAM node — there is no runtime, no cluster, no customer infrastructure
+behind it. This module is the determinism substrate a federation claim would
+need, not the claim itself.
+
 ## What AshR2RML does not do
 
 AshR2RML deliberately does not:

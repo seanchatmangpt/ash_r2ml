@@ -1,0 +1,33 @@
+{
+  "_comment": "Small, hand-authored, illustrative Palantir-style ontology object export. NOT a real Palantir export -- representative shape only, used as the 'incumbent' semantic source of truth that documentation/topics/palantir_kudzu_migration.md's Observe phase would inventory.",
+  "objectType": {
+    "apiName": "Asset",
+    "classIri": "https://example.test/ontology/Asset",
+    "displayName": "Asset"
+  },
+  "properties": [
+    {
+      "apiName": "assetTag",
+      "predicateIri": "https://example.test/ontology/assetTag",
+      "type": "string",
+      "required": true
+    },
+    {
+      "apiName": "serialNumber",
+      "predicateIri": "https://example.test/ontology/serialNumber",
+      "type": "string",
+      "required": true
+    }
+  ],
+  "links": [
+    {
+      "apiName": "custodian",
+      "predicateIri": "https://www.w3.org/ns/org#heldBy",
+      "cardinality": "ONE",
+      "targetObjectType": {
+        "apiName": "Organization",
+        "classIri": "https://www.w3.org/ns/org#Organization"
+      }
+    }
+  ]
+}
