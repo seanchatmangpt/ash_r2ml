@@ -51,6 +51,19 @@ defmodule AshR2RML.GrandExample.Organization do
     data_layer: Ash.DataLayer.Ets,
     extensions: [AshR2RML]
 
+  # private?(true): this fixture is shared across obda_in_memory_test.exs,
+  # grand_example_e2e_test.exs, zach_post_agi_reactor_test.exs,
+  # ocel_telemetry_chicago_test.exs, and obda_adapter_test.exs, all `async: true`.
+  # Ash.DataLayer.Ets's default (`private?: false`) backs the table with a single
+  # named GenServer shared across processes -- concurrent tests racing a create
+  # against another test's teardown intermittently raised `:table_not_found`
+  # (real, reproduced flake). `private?(true)` scopes the ETS table to the
+  # calling test process, eliminating the shared mutable state entirely; no test
+  # here reads/writes this resource from more than one process.
+  ets do
+    private? true
+  end
+
   r2rml do
     class_iri("https://schema.org/Organization")
     subject_template("https://schema.org/Organization/{id}")
@@ -84,6 +97,11 @@ defmodule AshR2RML.GrandExample.Person do
     domain: AshR2RML.GrandExample.Domain,
     data_layer: Ash.DataLayer.Ets,
     extensions: [AshR2RML]
+
+  # See AshR2RML.GrandExample.Organization's `ets do private?(true) end` comment.
+  ets do
+    private? true
+  end
 
   r2rml do
     class_iri("https://schema.org/Person")
@@ -131,6 +149,11 @@ defmodule AshR2RML.GrandExample.SemanticManifest do
     domain: AshR2RML.GrandExample.Domain,
     data_layer: Ash.DataLayer.Ets,
     extensions: [AshR2RML]
+
+  # See AshR2RML.GrandExample.Organization's `ets do private?(true) end` comment.
+  ets do
+    private? true
+  end
 
   r2rml do
     class_iri("https://schema.org/Dataset")
@@ -197,6 +220,11 @@ defmodule AshR2RML.GrandExample.Warehouse do
     domain: AshR2RML.GrandExample.Domain,
     data_layer: Ash.DataLayer.Ets
 
+  # See AshR2RML.GrandExample.Organization's `ets do private?(true) end` comment.
+  ets do
+    private? true
+  end
+
   actions do
     defaults [:read, :update, :destroy]
 
@@ -229,6 +257,11 @@ defmodule AshR2RML.GrandExample.Shipment do
     domain: AshR2RML.GrandExample.Domain,
     data_layer: Ash.DataLayer.Ets,
     extensions: [AshR2RML]
+
+  # See AshR2RML.GrandExample.Organization's `ets do private?(true) end` comment.
+  ets do
+    private? true
+  end
 
   r2rml do
     class_iri("https://schema.org/Shipment")

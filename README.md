@@ -250,6 +250,7 @@ Typical built-ins include:
 | `:date` | `xsd:date` |
 | UTC datetime types | `xsd:dateTime` |
 | `:uuid` | `xsd:string` unless overridden |
+| `:duration` (`Ash.Type.Duration`, Ash >= 3.23) | `xsd:duration` |
 
 A type with no lawful mapping is `UNSUPPORTED`; it is never silently coerced to a string.
 

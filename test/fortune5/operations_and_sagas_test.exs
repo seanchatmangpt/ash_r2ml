@@ -22,8 +22,19 @@ defmodule AshR2RML.Fortune5.OperationsAndSagasTest do
   defmodule SagaRecorder do
     use Agent
 
+    # Real, reproduced race (caught by running this suite with randomized seeds
+    # repeatedly, not by inspection): `Agent.start_link/2` links the agent to
+    # whichever ExUnit test process happens to create it first. That test
+    # process exits when its test finishes, which kills the linked agent --
+    # a subsequent test's `reset/0` can then observe a still-registered `pid`
+    # via `Process.whereis/1` a moment before its EXIT is processed, then race
+    # `Agent.update/2` against that dying process and crash with
+    # `{:exit, {:noproc, ...}}`. `Agent.start/2` (unlinked) decouples the
+    # recorder's lifetime from any one test process; `reset/0` additionally
+    # catches the exit from a stale pid and retries instead of trusting the
+    # `whereis` check-then-act as atomic.
     def start_link(_opts \\ []) do
-      Agent.start_link(fn -> [] end, name: __MODULE__)
+      Agent.start(fn -> [] end, name: __MODULE__)
     end
 
     def stop do
@@ -32,7 +43,11 @@ defmodule AshR2RML.Fortune5.OperationsAndSagasTest do
 
     def reset do
       if Process.whereis(__MODULE__) do
-        Agent.update(__MODULE__, fn _ -> [] end)
+        try do
+          Agent.update(__MODULE__, fn _ -> [] end)
+        catch
+          :exit, _ -> start_link()
+        end
       else
         start_link()
       end

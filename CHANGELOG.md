@@ -11,13 +11,51 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
-## [v26.8.26](https://github.com/seanchatmangpt/ash_r2rml/releases/tag/v26.8.26) (2026-08-31)
+## [Unreleased — feat/graphql-query-only-projection branch]
 
 ### Security:
 * **Sensitive-attribute plaintext leak into `AshR2RML.OBDA.InMemory` closed (R2RML-109)**: an attribute marked `sensitive?: true` on the Ash resource (Ash core's own redaction flag) previously materialized its real plaintext value into the RDF graph exactly like any other attribute — `Ash.read!/2` returns the real value for a `sensitive?: true` field, unlike a field-policy denial, which Ash itself replaces with a `%Ash.ForbiddenField{}` sentinel that materialization already omits. `AshR2RML.OBDA.InMemory.materialize/3`/`materialize_many/2` now check every predicate-object-mapped attribute against `Ash.Resource.Info.attribute/2`'s `sensitive?` flag and refuse (new typed `:REFUSED_SENSITIVE_ATTRIBUTE_MATERIALIZATION` code) rather than materialize by default; pass `allow_sensitive: true` to opt in explicitly.
 
 ### Deferred:
 * **`Ash.Type.Range` → constraint-aware R2RML mapping (part of this trial's original scope, blocked at execution time)**: `Ash.Type.Range` does not exist in this repo's currently locked Ash version (3.29.3; confirmed absent — `deps/ash/lib/ash/type/range.ex` does not exist in this dependency tree). Upgrading Ash to unlock it was out of scope for this trial (no dependency-version-bump approval sought). Left for a future release alongside an Ash upgrade.
+
+## [v26.8.29](https://github.com/seanchatmangpt/ash_r2rml/releases/tag/v26.8.29) (2026-08-28)
+
+### Dependency Updates:
+* `mix deps.update --all`: `ash` 3.29.3 -> 3.32.1, `igniter` 0.8.2 -> 0.8.3, `reactor` 1.0.2 -> 1.0.6, `spark` 2.7.2, `ex_ast` 0.13.1, plus transitive `ecto`/`req`/`mint`/etc bumps. Unlocks `Ash.Type.Range`/`Ash.Type.Duration` (deferred as a candidate in v26.8.28 pending this upgrade).
+
+### Features:
+* **`:duration` datatype mapping**: `AshR2RML.Datatype.Registry` now maps `:duration` / `Ash.Type.Duration` (Ash's builtin ISO-8601-style duration type, added upstream in 3.23) to `xsd:duration`, so resources with duration attributes get a real R2RML/RDF mapping instead of `UNSUPPORTED_ASH_TYPE`.
+
+### Deferred:
+* `Ash.Type.Range` was evaluated but not mapped this release: unlike every other registry entry, it is a parameterized type (`inner_type`/`inner_constraints`/bound-inclusivity constraints, not a fixed atom shorthand), so a lawful mapping needs a real constraint-aware R2RML rendering path (e.g. `xsd:date`/`xsd:dateTime` interval literals or decomposition into `owl-time`-style bound properties), not just a registry table entry. Left `UNSUPPORTED_ASH_TYPE` rather than a lossy placeholder mapping.
+
+## [v26.8.28](https://github.com/seanchatmangpt/ash_r2rml/releases/tag/v26.8.28) (2026-08-28)
+
+### Features & Architectural Highlights:
+* **`AshR2RML.Introspection.Manifest`**: a real, additive wrapper around `Ash.Info.manifest/1` (Ash >= 3.25's built-in codegen-oriented introspection API), producing a whole-application `resource_lookup` map (module -> fields/relationships/identities) for tooling and ggen-pack scaffolding use cases, without touching `AshR2RML.Compiler`'s existing per-resource `Ash.Resource.Info` mapping-IR pipeline. Refuses with a typed `:REFUSED_MANIFEST_GENERATION` `AshR2RML.Refusal` rather than propagating `Ash.Info.Manifest.generate/1`'s raw `{:error, term()}` shape.
+* **`mix ash_r2rml.install --target` is now idempotent**: uses Igniter 0.8's `Igniter.Code.Pattern.move_to/2` (ExAST pattern matching) to search the target module for an existing `r2rml do ... end` block before inserting a starter one, so re-running the installer against an already-patched module no longer duplicates the block.
+
+### Research:
+* Ran a deep-research pass over the current Ash/Reactor/Igniter ecosystem (Ash 3.29.3, Igniter 0.8.2 as locked in this repo) to identify capabilities worth adopting. Landed the two above; explicitly deferred `Ash.Type.Range`/`Duration` (Ash 3.32, not yet in this repo's locked Ash version) as a candidate for a future release once upgraded, for `xsd:duration`/interval R2RML literal mapping.
+
+## [v26.8.27](https://github.com/seanchatmangpt/ash_r2rml/releases/tag/v26.8.27) (2026-08-27)
+
+### Features & Architectural Highlights:
+* **`AshR2RML.Mapping.Changeset` / `AshR2RML.RDF.GraphAlgebra`**: a structured `add`/`update`/`replace`/`remove` diff algebra between two `RDF.Graph` snapshots (e.g. two successive R2RML Turtle renders, or two `AshR2RML.OBDA.InMemory.materialize/3` snapshots), with mutual-exclusion validation and inversion. Ported from the Gno RDF library's `Gno.Changeset` action algebra, stripped of the live-triple-store-diff half AshR2RML has no store to run (Ontop is virtual OBDA, never a materialized graph).
+* **`AshR2RML.OBDA.Adapter`**: a behaviour + typed configs (`OntopConfig`, `InMemoryConfig`) unifying dispatch to AshR2RML's two independently-evolved OBDA engines, modeled on Gno's `Gno.Store.Adapter` struct-type dispatch pattern, without the SPARQL-protocol-endpoint machinery AshR2RML has no use for.
+* **`mix ash_r2rml.install --target`**: the Igniter installer now optionally patches a named `Ash.Resource` module directly — adding `AshR2RML.Resource` to its `extensions:` list via `Spark.Igniter.add_extension/6` and inserting a starter `r2rml do end` block — instead of only ever printing manual instructions.
+
+### Bug Fixes:
+* fixed `mix ash_r2rml.install --target` crashing with a `SyntaxError`/`CaseClauseError` on any target module (the extension patch attempted to splice a bare `extensions: [...]` keyword fragment as standalone source, and the starter-block patch didn't wrap its zipper result in the `{:ok, _}` shape `Igniter.Project.Module.find_and_update_module!/3` requires); caught by a new real `Igniter.Test.test_project/1`-based test suite (`test/mix/tasks/ash_r2rml_install_test.exs`), not by inspection.
+* corrected the `ash-r2rml-pack` ggen pack's `[pack] name` (`ash-r2ml-pack` → `ash-r2rml-pack`).
+
+## [v26.8.26](https://github.com/seanchatmangpt/ash_r2rml/releases/tag/v26.8.26) (2026-08-25)
+
+### Features & Architectural Highlights:
+* **Confirmed `AshR2RML.OBDA.InMemory` data-layer agnosticism**: `materialize/3` has no data-layer gate at all (`rows_for/3` just calls `Ash.read!/2`) — proven for real against `AshCsv.DataLayer` (a real CSV file on disk) and `AshCubDB.DataLayer` (a real CubDB store), zero code changes needed for either. Corrected the module's moduledoc, which previously undersold this generality by calling itself "ETS-side".
+* **`AshR2RML.Ggen.compile_api_bundle/2`**: auto-derives minimal, verified-compilable `graphql do ... end` / `json_api do ... end` blocks from the same mapping IR that already drives `r2rml`'s `class_iri`/`table_name`, confirmed by actually `Code.eval_string/1`-ing the generated source and checking `AshGraphql.Resource.Info.type/1` / `AshJsonApi.Resource.Info.type/1` against it.
+* Five sourced research investigations into other Ash extensions, most notably a HIGH-severity gap: `ash_cloak`'s `decrypt_by_default` option can cause `AshR2RML.OBDA.InMemory` to silently materialize decrypted plaintext into the RDF graph via a plain `Ash.read!/2` — ticketed as `R2RML-109`, not yet fixed as of this release.
 
 ## [v26.8.25](https://github.com/seanchatmangpt/ash_r2rml/releases/tag/v26.8.25) (2026-08-25)
 

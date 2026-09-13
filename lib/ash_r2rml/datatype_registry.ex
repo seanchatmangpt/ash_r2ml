@@ -35,7 +35,8 @@ defmodule AshR2RML.Datatype.Registry do
     atom: {@xsd <> "string", :text},
     geo_wkt: {@ogc_geo <> "wktLiteral", :geometry},
     vector: {@xsd <> "string", :vector},
-    array: {@xsd <> "string", :array}
+    array: {@xsd <> "string", :array},
+    duration: {@xsd <> "duration", :duration}
   }
 
   @ash_type_modules %{
@@ -55,7 +56,8 @@ defmodule AshR2RML.Datatype.Registry do
     "Elixir.Ash.Type.Atom" => :atom,
     "Elixir.AshGeo.Geometry" => :geo_wkt,
     "Elixir.AshGeo.Point" => :geo_wkt,
-    "Elixir.Ash.Type.Vector" => :vector
+    "Elixir.Ash.Type.Vector" => :vector,
+    "Elixir.Ash.Type.Duration" => :duration
   }
 
   @spec resolve(term(), String.t() | nil, term() | nil) :: {:ok, Datatype.t()} | {:error, Refusal.t()}

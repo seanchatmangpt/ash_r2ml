@@ -148,6 +148,14 @@ defmodule AshR2RML.Adversarial.DatatypeClosureTest do
       assert {:ok, %{rdf_datatype: "http://www.w3.org/2001/XMLSchema#string"}} = Registry.resolve(:string)
     end
 
+    test "resolves :duration (Ash.Type.Duration, Ash >= 3.23) to xsd:duration" do
+      assert {:ok, %{rdf_datatype: "http://www.w3.org/2001/XMLSchema#duration", storage_type: :duration}} =
+               Registry.resolve(:duration)
+
+      assert {:ok, %{rdf_datatype: "http://www.w3.org/2001/XMLSchema#duration"}} =
+               Registry.resolve(Ash.Type.Duration)
+    end
+
     test "resolves Ash.Type.Enum modules to xsd:string without loss" do
       assert {:ok, dt} = Registry.resolve(PublicationStatusEnum)
       assert dt.rdf_datatype == "http://www.w3.org/2001/XMLSchema#string"

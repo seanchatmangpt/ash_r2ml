@@ -177,13 +177,10 @@ defmodule AshR2RML.Resource do
                               []
                             end)
 
-  @knowledge_hooks AshR2RML.KnowledgeHook.Dsl.section()
-
   use Spark.Dsl.Extension,
-    sections: [@r2rml, @sparql, @knowledge_hooks],
+    sections: [@r2rml, @sparql],
     transformers: [
-      AshR2RML.Resource.Persist,
-      AshR2RML.KnowledgeHook.Transformers.RegisterDispatcher
+      AshR2RML.Resource.Persist
     ],
     verifiers: [AshR2RML.Resource.Verify],
     single_extension_kinds: [:ash_r2rml],

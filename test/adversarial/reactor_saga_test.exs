@@ -24,8 +24,18 @@ defmodule AshR2RML.Adversarial.ReactorSagaTest do
   defmodule SequenceRecorder do
     use Agent
 
+    # `Agent.start_link/2` links the agent to whichever ExUnit test process
+    # happens to create it first -- that process exits when its test finishes,
+    # killing the linked agent and leaving a stale name registration a moment
+    # before the EXIT propagates. A later test's `reset/0` can then race
+    # `Agent.update/2` against that dying process. `Agent.start/2` (unlinked)
+    # decouples the recorder's lifetime from any one test process; `reset/0`
+    # additionally catches the exit from a stale pid and retries instead of
+    # trusting `already_started`/`whereis` as atomic with the following call.
+    # (Real, reproduced flake -- see test/fortune5/operations_and_sagas_test.exs's
+    # identical fix for the same root cause.)
     def start_link(_opts \\ []) do
-      Agent.start_link(fn -> [] end, name: __MODULE__)
+      Agent.start(fn -> [] end, name: __MODULE__)
     end
 
     def stop do
@@ -33,9 +43,16 @@ defmodule AshR2RML.Adversarial.ReactorSagaTest do
     end
 
     def reset do
-      case Agent.start_link(fn -> [] end, name: __MODULE__) do
-        {:ok, _pid} -> :ok
-        {:error, {:already_started, _pid}} -> Agent.update(__MODULE__, fn _ -> [] end)
+      case Agent.start(fn -> [] end, name: __MODULE__) do
+        {:ok, _pid} ->
+          :ok
+
+        {:error, {:already_started, _pid}} ->
+          try do
+            Agent.update(__MODULE__, fn _ -> [] end)
+          catch
+            :exit, _ -> reset()
+          end
       end
     end
 

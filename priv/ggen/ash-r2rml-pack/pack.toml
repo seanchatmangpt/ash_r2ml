@@ -1,4 +1,4 @@
 [pack]
-name = "ash-r2ml-pack"
+name = "ash-r2rml-pack"
 version = "0.2.0"
 description = "Ash-first cloud ggen manufacturer. AshR2RML emits ontology, SHACL, and R2RML TTL deterministically from admitted Ash resources; ggen consumes the generated path/content graph with fail-closed gates and no independently maintained TTL source files."

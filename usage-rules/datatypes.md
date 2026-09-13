@@ -15,6 +15,7 @@ Representative defaults:
 | `:date` | `xsd:date` |
 | UTC datetime | `xsd:dateTime` |
 | `:uuid` | `xsd:string` unless explicitly mapped otherwise |
+| `:duration` (`Ash.Type.Duration`, Ash >= 3.23) | `xsd:duration` |
 
 The exact registry is executable code and tests, not this table alone.
 
